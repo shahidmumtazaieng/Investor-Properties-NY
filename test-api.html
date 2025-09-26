@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Test Page</h1>
+    <button onclick="testProperties()">Test Properties API</button>
+    <button onclick="testForeclosures()">Test Foreclosures API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testProperties() {
+            try {
+                const response = await fetch('http://localhost:3002/api/public/properties');
+                const data = await response.json();
+                document.getElementById('results').innerHTML = `
+                    <h2>Properties API Response</h2>
+                    <p>Status: ${response.status}</p>
+                    <p>Properties count: ${data.length}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `
+                    <h2>Properties API Error</h2>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        }
+
+        async function testForeclosures() {
+            try {
+                const response = await fetch('http://localhost:3002/api/public/foreclosures/samples');
+                const data = await response.json();
+                document.getElementById('results').innerHTML = `
+                    <h2>Foreclosures API Response</h2>
+                    <p>Status: ${response.status}</p>
+                    <p>Samples count: ${data.samples ? data.samples.length : 'N/A'}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `
+                    <h2>Foreclosures API Error</h2>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

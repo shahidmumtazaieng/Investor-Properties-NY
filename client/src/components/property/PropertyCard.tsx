@@ -1,0 +1,165 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { 
+  MapPinIcon, 
+  HomeIcon, 
+  CurrencyDollarIcon,
+  ChartBarIcon
+} from '../icons';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+
+interface Property {
+  id: string;
+  address: string;
+  neighborhood: string;
+  borough: string;
+  propertyType: string;
+  beds: number;
+  baths: string;
+  sqft: number;
+  price: string;
+  estimatedProfit?: string;
+  capRate?: string;
+  images: string[];
+  description: string;
+}
+
+interface PropertyCardProps {
+  property: Property;
+  onMakeOffer?: (property: Property) => void;
+  animationDelay?: number;
+}
+
+const PropertyCard: React.FC<PropertyCardProps> = ({ 
+  property, 
+  onMakeOffer, 
+  animationDelay = 0 
+}) => {
+  const profitMargin = property.estimatedProfit ? 
+    Math.round((parseInt(property.estimatedProfit.replace(/[$,]/g, '')) / parseInt(property.price.replace(/[$,]/g, ''))) * 100) : 0;
+
+  return (
+    <Card 
+      variant="modern" 
+      className="overflow-hidden group animate-slide-up"
+      style={{ animationDelay: `${animationDelay}s` }}
+    >
+      {/* Property Image */}
+      <div className="relative h-64 overflow-hidden">
+        <img 
+          src={property.images[0]} 
+          alt={property.address}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        
+        {/* Property Type Badge */}
+        <div className="absolute top-4 left-4">
+          <span className="px-3 py-1 bg-accent-yellow text-white text-sm font-semibold rounded-full">
+            {property.propertyType}
+          </span>
+        </div>
+
+        {/* Profit Badge */}
+        {property.estimatedProfit && (
+          <div className="absolute top-4 right-4">
+            <span className="px-3 py-1 bg-success-emerald text-white text-sm font-semibold rounded-full">
+              +{profitMargin}% ROI
+            </span>
+          </div>
+        )}
+
+        {/* Hover Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <Link to={`/properties/${property.id}`}>
+            <Button variant="secondary" className="transform -translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+              View Details
+              <span className="ml-2">→</span>
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Property Details */}
+      <div className="p-6">
+        {/* Address */}
+        <div className="mb-3">
+          <h3 className="text-xl font-bold text-primary-blue mb-1 group-hover:text-accent-yellow transition-colors">
+            {property.address}
+          </h3>
+          <div className="flex items-center text-neutral-600 text-sm">
+            <MapPinIcon className="w-4 h-4 mr-1" />
+            {property.neighborhood}, {property.borough}
+          </div>
+        </div>
+
+        {/* Property Specs */}
+        <div className="flex items-center gap-4 mb-4 text-sm text-neutral-600">
+          <div className="flex items-center">
+            <HomeIcon className="w-4 h-4 mr-1" />
+            {property.beds} beds
+          </div>
+          <div className="flex items-center">
+            <span className="text-lg">🛁</span>
+            {property.baths} baths
+          </div>
+          <div className="flex items-center">
+            <span className="text-lg">📐</span>
+            {property.sqft?.toLocaleString()} sqft
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-neutral-600">Price:</span>
+            <span className="text-2xl font-bold text-primary-blue">{property.price}</span>
+          </div>
+          
+          {property.capRate && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-neutral-600">Cap Rate:</span>
+              <span className="text-lg font-semibold text-success-emerald">{property.capRate}%</span>
+            </div>
+          )}
+          
+          {property.estimatedProfit && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-neutral-600">Est. Profit:</span>
+              <span className="text-lg font-semibold text-accent-yellow flex items-center">
+                <ChartBarIcon className="w-4 h-4 mr-1" />
+                {property.estimatedProfit}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        <p className="text-neutral-600 text-sm mb-4 line-clamp-2">
+          {property.description}
+        </p>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3">
+          <Link to={`/properties/${property.id}`} className="flex-1">
+            <Button variant="primary" className="w-full">
+              View Details
+            </Button>
+          </Link>
+          {onMakeOffer && (
+            <Button
+              variant="success"
+              onClick={() => onMakeOffer(property)}
+              className="flex-1"
+            >
+              Make Offer
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+export default PropertyCard;

@@ -1,0 +1,324 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { 
+  CheckIcon, 
+  UserGroupIcon, 
+  ShieldCheckIcon,
+  TrendingUpIcon,
+  AwardIcon,
+  LightBulbIcon
+} from 'lucide-react';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+
+const AboutPage = () => {
+  const teamMembers = [
+    {
+      name: 'Alex Morgan',
+      role: 'Founder & CEO',
+      bio: '15+ years in NYC real estate investing and development. Former investment banker with expertise in property valuation and market analysis.',
+      expertise: ['Investment Strategy', 'Market Analysis', 'Property Valuation'],
+      achievements: ['Closed $100M+ in deals', 'Featured in Forbes', 'NYC Real Estate Hall of Fame']
+    },
+    {
+      name: 'Jamie Chen',
+      role: 'Chief Technology Officer',
+      bio: 'Tech entrepreneur with a focus on real estate platforms. Previously led engineering teams at major PropTech companies.',
+      expertise: ['Platform Architecture', 'Data Analytics', 'AI/ML Applications'],
+      achievements: ['Built 3 successful startups', 'Patent holder', 'TechCrunch Disrupt Winner']
+    },
+    {
+      name: 'Maria Rodriguez',
+      role: 'Head of Investor Relations',
+      bio: 'Licensed real estate broker with deep connections in the NYC investment community. Former portfolio manager at a major REIT.',
+      expertise: ['Investor Relations', 'Portfolio Management', 'Market Intelligence'],
+      achievements: ['Managed $500M+ portfolio', 'Top 1% broker NYC', 'Industry Award Winner']
+    }
+  ];
+
+  const milestones = [
+    {
+      year: '2020',
+      title: 'Company Founded',
+      description: 'Started with a vision to democratize real estate investing in NYC'
+    },
+    {
+      year: '2021',
+      title: 'First $10M in Deals',
+      description: 'Reached our first major milestone of $10 million in closed deals'
+    },
+    {
+      year: '2022',
+      title: 'Platform Launch',
+      description: 'Launched our comprehensive digital platform for investors'
+    },
+    {
+      year: '2023',
+      title: '1000+ Active Investors',
+      description: 'Built a community of over 1000 active real estate investors'
+    },
+    {
+      year: '2024',
+      title: '$50M+ Deals Closed',
+      description: 'Surpassed $50 million in total deals closed through our platform'
+    },
+    {
+      year: '2025',
+      title: 'Market Leader',
+      description: 'Became NYC's premier off-market real estate platform'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100">
+      {/* Hero Section */}
+      <section className="bg-gradient-hero text-white py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-4xl mx-auto">
+            <h1 className="text-5xl md:text-6xl font-bold mb-6">
+              About Investor Properties NY
+            </h1>
+            <p className="text-xl md:text-2xl text-neutral-100 leading-relaxed">
+              Revolutionizing real estate investing in NYC by connecting investors with exclusive off-market opportunities
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Mission & Vision */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="animate-slide-up">
+              <h2 className="text-4xl font-bold text-primary-blue mb-6">
+                Our Mission
+              </h2>
+              <p className="text-lg text-neutral-600 mb-6 leading-relaxed">
+                At Investor Properties NY, we believe that successful real estate investing should be accessible to everyone, 
+                not just those with insider connections. Our platform bridges the gap between property owners seeking 
+                quick sales and investors looking for profitable opportunities.
+              </p>
+              <p className="text-lg text-neutral-600 mb-8 leading-relaxed">
+                We've built a comprehensive ecosystem that provides everything investors need to find, evaluate, 
+                and close profitable deals in the competitive NYC real estate market.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-start">
+                  <CheckIcon className="w-6 h-6 text-success-emerald mr-3 mt-1 flex-shrink-0" />
+                  <span className="text-neutral-700">Democratizing access to real estate opportunities</span>
+                </div>
+                <div className="flex items-start">
+                  <CheckIcon className="w-6 h-6 text-success-emerald mr-3 mt-1 flex-shrink-0" />
+                  <span className="text-neutral-700">Empowering investors with data-driven insights</span>
+                </div>
+                <div className="flex items-start">
+                  <CheckIcon className="w-6 h-6 text-success-emerald mr-3 mt-1 flex-shrink-0" />
+                  <span className="text-neutral-700">Building long-term relationships with our community</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="animate-slide-in-right">
+              <Card variant="modern" className="p-8">
+                <div className="bg-gradient-hero rounded-2xl p-8 text-white text-center">
+                  <h3 className="text-2xl font-bold mb-4">Our Vision</h3>
+                  <p className="mb-6 leading-relaxed">
+                    To become the most trusted and comprehensive platform for real estate investing in NYC, 
+                    creating wealth opportunities for investors while revitalizing communities across all five boroughs.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-3xl font-bold text-accent-yellow">500+</div>
+                      <div className="text-sm">Properties</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-accent-yellow">$50M+</div>
+                      <div className="text-sm">Deals Closed</div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Core Values */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-primary-blue mb-6">
+              Our Core Values
+            </h2>
+            <p className="text-xl text-neutral-600 max-w-3xl mx-auto">
+              These principles guide everything we do and shape how we serve our community of investors
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              {
+                icon: ShieldCheckIcon,
+                title: 'Transparency',
+                description: 'Complete transparency in all our dealings, pricing, and property information.'
+              },
+              {
+                icon: UserGroupIcon,
+                title: 'Community',
+                description: 'Building a strong community of investors who support each other\'s success.'
+              },
+              {
+                icon: LightBulbIcon,
+                title: 'Innovation',
+                description: 'Constantly innovating to provide better tools and insights for our investors.'
+              },
+              {
+                icon: TrendingUpIcon,
+                title: 'Results',
+                description: 'Focused on delivering measurable results and ROI for every investment.'
+              }
+            ].map((value, index) => (
+              <Card 
+                key={index} 
+                variant="modern" 
+                className="p-8 text-center animate-slide-up"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-16 h-16 bg-gradient-gold rounded-full flex items-center justify-center mx-auto mb-6">
+                  <value.icon className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-primary-blue mb-4">{value.title}</h3>
+                <p className="text-neutral-600 leading-relaxed">{value.description}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Timeline */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-primary-blue mb-6">
+              Our Journey
+            </h2>
+            <p className="text-xl text-neutral-600 max-w-3xl mx-auto">
+              From a simple idea to NYC's premier real estate investment platform
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            {milestones.map((milestone, index) => (
+              <div key={index} className="flex items-center mb-12 last:mb-0">
+                <div className="flex-shrink-0 w-24 text-center">
+                  <div className="text-2xl font-bold text-accent-yellow">{milestone.year}</div>
+                </div>
+                <div className="flex-shrink-0 w-8 h-8 bg-gradient-gold rounded-full flex items-center justify-center mx-6">
+                  <div className="w-3 h-3 bg-white rounded-full"></div>
+                </div>
+                <div className="flex-grow">
+                  <Card variant="modern" className="p-6">
+                    <h3 className="text-xl font-bold text-primary-blue mb-2">{milestone.title}</h3>
+                    <p className="text-neutral-600">{milestone.description}</p>
+                  </Card>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Team Section */}
+      <section id="team" className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-primary-blue mb-6">
+              Leadership Team
+            </h2>
+            <p className="text-xl text-neutral-600 max-w-3xl mx-auto">
+              Experienced professionals dedicated to revolutionizing real estate investing in NYC
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {teamMembers.map((member, index) => (
+              <Card 
+                key={index} 
+                variant="modern" 
+                className="p-8 animate-slide-up"
+                style={{ animationDelay: `${index * 0.2}s` }}
+              >
+                <div className="text-center mb-6">
+                  <div className="bg-gradient-hero w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl font-bold text-white">
+                      {member.name.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-primary-blue mb-1">{member.name}</h3>
+                  <div className="text-accent-yellow font-semibold mb-4">{member.role}</div>
+                  <p className="text-neutral-600 text-sm leading-relaxed">{member.bio}</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-primary-blue mb-2">Expertise:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {member.expertise.map((skill, skillIndex) => (
+                        <span 
+                          key={skillIndex}
+                          className="px-2 py-1 bg-accent-yellow/10 text-accent-yellow text-xs rounded-full"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-primary-blue mb-2">Key Achievements:</h4>
+                    <ul className="space-y-1">
+                      {member.achievements.map((achievement, achievementIndex) => (
+                        <li key={achievementIndex} className="flex items-start">
+                          <AwardIcon className="w-4 h-4 text-success-emerald mr-2 mt-0.5 flex-shrink-0" />
+                          <span className="text-sm text-neutral-600">{achievement}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-hero text-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-4xl font-bold mb-6">
+            Ready to Join Our Community?
+          </h2>
+          <p className="text-xl mb-8 max-w-3xl mx-auto text-neutral-100 leading-relaxed">
+            Join thousands of successful investors who trust Investor Properties NY for exclusive off-market deals 
+            and expert market insights.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/auth/investor">
+              <Button variant="secondary" className="text-lg px-8 py-4">
+                Start Investing
+              </Button>
+            </Link>
+            <Link to="/properties">
+              <Button variant="outline" className="text-lg px-8 py-4">
+                Browse Properties
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default AboutPage;

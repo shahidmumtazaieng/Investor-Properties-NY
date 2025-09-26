@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Connection</title>
+</head>
+<body>
+    <h1>Testing Server Connections</h1>
+    
+    <h2>Testing Backend Server (Port 3002)</h2>
+    <button onclick="testBackend()">Test Backend</button>
+    <div id="backend-result"></div>
+    
+    <h2>Testing Frontend Server (Port 3000)</h2>
+    <button onclick="testFrontend()">Test Frontend</button>
+    <div id="frontend-result"></div>
+    
+    <script>
+        async function testBackend() {
+            const resultDiv = document.getElementById('backend-result');
+            try {
+                const response = await fetch('http://localhost:3002/api/health');
+                const data = await response.json();
+                resultDiv.innerHTML = `<p style="color: green;">Success! Status: ${response.status}</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testFrontend() {
+            const resultDiv = document.getElementById('frontend-result');
+            try {
+                const response = await fetch('http://localhost:3000');
+                const text = await response.text();
+                resultDiv.innerHTML = `<p style="color: green;">Success! Status: ${response.status}</p><pre>${text.substring(0, 200)}...</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
