@@ -207,6 +207,13 @@ const AdminDashboard: React.FC = () => {
                       >
                         Foreclosure Bid Management
                       </Button>
+                      <Button 
+                        variant="primary" 
+                        className="justify-center"
+                        onClick={() => navigate('/admin/blogs')}
+                      >
+                        Blog Management
+                      </Button>
                     </div>
                   </div>
                 </Card>

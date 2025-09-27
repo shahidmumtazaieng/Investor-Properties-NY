@@ -61,53 +61,17 @@ const BlogManagement: React.FC = () => {
 
   const fetchBlogPosts = async () => {
     try {
-      // Simulate API call
-      setTimeout(() => {
-        const samplePosts: BlogPost[] = [
-          {
-            id: '1',
-            title: 'Top 10 Wholesale Properties in Manhattan for Q4 2024',
-            excerpt: 'Discover the most profitable wholesale properties in Manhattan that are perfect for investors looking to flip or hold for rental income.',
-            content: 'Full content of the blog post...',
-            date: '2024-10-15',
-            author: authors[0],
-            category: 'Property Insights',
-            tags: ['Manhattan', 'Wholesale', 'Investing'],
-            readTime: '5 min read',
-            image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
-            featured: true
-          },
-          {
-            id: '2',
-            title: 'Understanding NYC Foreclosure Laws: A Guide for Investors',
-            excerpt: 'Navigate the complex legal landscape of NYC foreclosures with our comprehensive guide to laws, regulations, and investor rights.',
-            content: 'Full content of the blog post...',
-            date: '2024-10-10',
-            author: authors[1],
-            category: 'Legal Insights',
-            tags: ['Foreclosure', 'Legal', 'NYC'],
-            readTime: '8 min read',
-            image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80'
-          },
-          {
-            id: '3',
-            title: 'Maximizing ROI in Brooklyn Multi-Family Properties',
-            excerpt: 'Learn proven strategies to increase rental income and property value in Brooklyn\'s competitive multi-family market.',
-            content: 'Full content of the blog post...',
-            date: '2024-10-05',
-            author: authors[2],
-            category: 'Investment Strategies',
-            tags: ['Brooklyn', 'Multi-Family', 'ROI'],
-            readTime: '6 min read',
-            image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
-            featured: true
-          }
-        ];
-        setPosts(samplePosts);
-        setLoading(false);
-      }, 1000);
+      const response = await fetch('/api/admin/blogs', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success && data.posts) {
+        setPosts(data.posts);
+      }
     } catch (error) {
       console.error('Error fetching blog posts:', error);
+    } finally {
       setLoading(false);
     }
   };
@@ -155,27 +119,75 @@ const BlogManagement: React.FC = () => {
     setIsEditing(true);
   };
 
-  const handleDelete = (postId: string) => {
+  const handleDelete = async (postId: string) => {
     if (window.confirm('Are you sure you want to delete this blog post?')) {
-      setPosts(prev => prev.filter(post => post.id !== postId));
+      try {
+        const response = await fetch(`/api/admin/blogs/${postId}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setPosts(prev => prev.filter(post => post.id !== postId));
+        } else {
+          alert('Failed to delete blog post: ' + (data.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error deleting blog post:', error);
+        alert('Network error. Please try again.');
+      }
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (currentPost) {
-      if (currentPost.id) {
-        // Update existing post
-        setPosts(prev => prev.map(post => post.id === currentPost.id ? currentPost : post));
-      } else {
-        // Create new post
-        const newPost = {
-          ...currentPost,
-          id: Date.now().toString()
-        };
-        setPosts(prev => [...prev, newPost]);
+      try {
+        let response;
+        let data;
+        
+        if (currentPost.id) {
+          // Update existing post
+          response = await fetch(`/api/admin/blogs/${currentPost.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(currentPost),
+          });
+        } else {
+          // Create new post
+          response = await fetch('/api/admin/blogs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(currentPost),
+          });
+        }
+        
+        data = await response.json();
+        
+        if (data.success) {
+          if (currentPost.id) {
+            // Update existing post
+            setPosts(prev => prev.map(post => post.id === currentPost.id ? data.post : post));
+          } else {
+            // Create new post
+            setPosts(prev => [...prev, data.post]);
+          }
+          setIsEditing(false);
+          setCurrentPost(null);
+        } else {
+          alert('Failed to save blog post: ' + (data.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error saving blog post:', error);
+        alert('Network error. Please try again.');
       }
-      setIsEditing(false);
-      setCurrentPost(null);
     }
   };
 
@@ -190,6 +202,13 @@ const BlogManagement: React.FC = () => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const getStatusBadge = (featured: boolean | undefined) => {
+    if (featured) {
+      return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Featured</span>;
+    }
+    return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Published</span>;
   };
 
   if (loading) {
@@ -290,24 +309,113 @@ const BlogManagement: React.FC = () => {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Image URL
+                  Image
                 </label>
-                <Input
-                  value={currentPost.image}
-                  onChange={(e) => setCurrentPost({ ...currentPost, image: e.target.value })}
-                  placeholder="Enter image URL"
+                {currentPost.image ? (
+                  <div className="mb-3">
+                    <img 
+                      src={currentPost.image} 
+                      alt="Preview" 
+                      className="h-32 w-32 object-cover rounded-md border"
+                    />
+                  </div>
+                ) : null}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const formData = new FormData();
+                      formData.append('image', file);
+                      
+                      try {
+                        const response = await fetch('/api/admin/blogs/upload-image', {
+                          method: 'POST',
+                          credentials: 'include',
+                          body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success && data.imageUrl) {
+                          setCurrentPost({ ...currentPost, image: data.imageUrl });
+                        } else {
+                          alert('Failed to upload image: ' + (data.message || 'Unknown error'));
+                        }
+                      } catch (error) {
+                        console.error('Error uploading image:', error);
+                        alert('Network error. Please try again.');
+                      }
+                    }
+                  }}
+                  className="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
                 />
+                {currentPost.image && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPost({ ...currentPost, image: '' })}
+                    className="mt-2 text-sm text-red-600 hover:text-red-800"
+                  >
+                    Remove image
+                  </button>
+                )}
               </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tags (comma separated)
+                  Tags
                 </label>
-                <Input
-                  value={currentPost.tags.join(', ')}
-                  onChange={(e) => setCurrentPost({ ...currentPost, tags: e.target.value.split(',').map(tag => tag.trim()) })}
-                  placeholder="Enter tags separated by commas"
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {currentPost.tags.map((tag, index) => (
+                    <span 
+                      key={index} 
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newTags = [...currentPost.tags];
+                          newTags.splice(index, 1);
+                          setCurrentPost({ ...currentPost, tags: newTags });
+                        }}
+                        className="flex-shrink-0 ml-1.5 h-4 w-4 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-500 focus:outline-none"
+                      >
+                        <span className="sr-only">Remove tag</span>
+                        <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                          <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Type a tag and press Enter or comma"
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ',') && e.currentTarget.value.trim()) {
+                      e.preventDefault();
+                      const newTag = e.currentTarget.value.trim();
+                      if (newTag && !currentPost.tags.includes(newTag)) {
+                        setCurrentPost({ 
+                          ...currentPost, 
+                          tags: [...currentPost.tags, newTag] 
+                        });
+                      }
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Press Enter or comma to add tags
+                </p>
               </div>
 
               <div className="md:col-span-2 flex items-center">
@@ -465,15 +573,7 @@ const BlogManagement: React.FC = () => {
                         {formatDate(post.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {post.featured ? (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                            Featured
-                          </span>
-                        ) : (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                            Published
-                          </span>
-                        )}
+                        {getStatusBadge(post.featured)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">

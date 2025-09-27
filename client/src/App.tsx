@@ -26,6 +26,7 @@ import ForeclosureManagement from './components/admin/ForeclosureManagement';
 import OfferManagement from './components/admin/OfferManagement';
 import ForeclosureBidManagement from './components/admin/ForeclosureBidManagement';
 import ForeclosureSubscriptionManagement from './components/admin/ForeclosureSubscriptionManagement';
+import BlogManagement from './components/admin/BlogManagement';
 // Seller components
 import SellerDashboard from './components/seller/SellerDashboard';
 import SellerProperties from './components/seller/SellerProperties';
@@ -100,6 +101,7 @@ const AppContent: React.FC = () => {
             <Route path="/admin/offers" element={user?.userType === 'admin' ? <OfferManagement /> : <Navigate to="/admin/login" replace />} />
             <Route path="/admin/foreclosure-bids" element={user?.userType === 'admin' ? <ForeclosureBidManagement /> : <Navigate to="/admin/login" replace />} />
             <Route path="/admin/subscription-requests" element={user?.userType === 'admin' ? <ForeclosureSubscriptionManagement /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/blogs" element={user?.userType === 'admin' ? <BlogManagement /> : <Navigate to="/admin/login" replace />} />
 
             {/* Seller Routes */}
             <Route path="/seller/dashboard" element={user?.userType === 'seller' ? <SellerDashboard /> : <Navigate to="/auth/seller" replace />} />

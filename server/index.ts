@@ -4,9 +4,14 @@ import session from "express-session";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import path from "path";
+import { fileURLToPath } from "url";
 import authRoutes from "./auth-routes.ts";
 import adminRoutes from "./admin-routes.ts";
 import { DatabaseRepository } from "./database-repository.ts";
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -426,14 +431,6 @@ app.get('/api/public/foreclosures/samples', (req, res) => {
   res.json(mockForeclosures);
 });
 
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
-  res.status(status).json({ message });
-});
-
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
   const publicPath = path.join(__dirname, 'public');
@@ -444,6 +441,17 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(publicPath, 'index.html'));
   });
 }
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Error:', err);
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+  res.status(status).json({ message });
+});
 
 // Start server
 const startServer = async () => {

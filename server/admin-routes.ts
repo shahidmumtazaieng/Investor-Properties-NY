@@ -1,6 +1,78 @@
 import express from 'express';
 import { DatabaseRepository } from './database-repository.ts';
 import { NotificationService } from './notification-service.ts';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import * as XLSX from 'xlsx';
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join('uploads', 'blog-images');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'blog-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// Configure multer for property file uploads
+const propertyFileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join('uploads', 'property-files');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'property-import-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const propertyFileUpload = multer({ 
+  storage: propertyFileStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only Excel and CSV files
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv' // .csv
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel (.xlsx, .xls) and CSV files are allowed'));
+    }
+  }
+});
 
 const router = express.Router();
 const db = new DatabaseRepository();
@@ -393,6 +465,61 @@ router.post('/properties/import/google-sheets', authenticateAdmin, async (req: A
     res.status(500).json({ 
       success: false, 
       message: 'Failed to import properties from Google Sheets' 
+    });
+  }
+});
+
+// Import properties from uploaded file
+router.post('/properties/import/file', authenticateAdmin, propertyFileUpload.single('file'), async (req: AdminRequest, res: express.Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No file provided' 
+      });
+    }
+
+    // Parse the file based on its type
+    let properties: any[] = [];
+    
+    if (req.file.mimetype === 'text/csv') {
+      // Handle CSV file
+      const csv = fs.readFileSync(req.file.path, 'utf8');
+      const lines = csv.split('\n');
+      if (lines.length > 1) {
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        for (let i = 1; i < lines.length; i++) {
+          if (lines[i].trim()) {
+            const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+            const property: any = {};
+            headers.forEach((header, index) => {
+              property[header] = values[index] || '';
+            });
+            properties.push(property);
+          }
+        }
+      }
+    } else {
+      // Handle Excel file
+      const workbook = XLSX.readFile(req.file.path);
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      properties = XLSX.utils.sheet_to_json(worksheet);
+    }
+
+    // Clean up uploaded file
+    fs.unlinkSync(req.file.path);
+
+    res.json({ 
+      success: true, 
+      message: `${properties.length} properties imported successfully`,
+      properties
+    });
+  } catch (error) {
+    console.error('Error importing properties from file:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to import properties from file' 
     });
   }
 });
@@ -1154,6 +1281,176 @@ router.post('/subscriptions/:id/cancel', authenticateAdmin, async (req: AdminReq
   } catch (error) {
     console.error('Error cancelling subscription:', error);
     res.status(500).json({ success: false, message: 'Failed to cancel subscription' });
+  }
+});
+
+// Get all blog posts
+router.get('/blogs', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    // Mock blog post data
+    const posts = [
+      {
+        id: '1',
+        title: 'Top 10 Wholesale Properties in Manhattan for Q4 2024',
+        excerpt: 'Discover the most profitable wholesale properties in Manhattan that are perfect for investors looking to flip or hold for rental income.',
+        content: 'Full content of the blog post...',
+        date: '2024-10-15',
+        author: { name: 'Alex Morgan', avatar: 'https://randomuser.me/api/portraits/men/32.jpg' },
+        category: 'Property Insights',
+        tags: ['Manhattan', 'Wholesale', 'Investing'],
+        readTime: '5 min read',
+        image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+        featured: true
+      },
+      {
+        id: '2',
+        title: 'Understanding NYC Foreclosure Laws: A Guide for Investors',
+        excerpt: 'Navigate the complex legal landscape of NYC foreclosures with our comprehensive guide to laws, regulations, and investor rights.',
+        content: 'Full content of the blog post...',
+        date: '2024-10-10',
+        author: { name: 'Jamie Chen', avatar: 'https://randomuser.me/api/portraits/women/44.jpg' },
+        category: 'Legal Insights',
+        tags: ['Foreclosure', 'Legal', 'NYC'],
+        readTime: '8 min read',
+        image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80'
+      },
+      {
+        id: '3',
+        title: 'Maximizing ROI in Brooklyn Multi-Family Properties',
+        excerpt: 'Learn proven strategies to increase rental income and property value in Brooklyn\'s competitive multi-family market.',
+        content: 'Full content of the blog post...',
+        date: '2024-10-05',
+        author: { name: 'Maria Rodriguez', avatar: 'https://randomuser.me/api/portraits/women/68.jpg' },
+        category: 'Investment Strategies',
+        tags: ['Brooklyn', 'Multi-Family', 'ROI'],
+        readTime: '6 min read',
+        image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+        featured: true
+      }
+    ];
+    
+    res.json({ success: true, posts });
+  } catch (error) {
+    console.error('Error fetching blog posts:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch blog posts' });
+  }
+});
+
+// Create new blog post
+router.post('/blogs', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const postData = req.body;
+    
+    // Validate required fields
+    const requiredFields = ['title', 'excerpt', 'content', 'category', 'author'];
+    for (const field of requiredFields) {
+      if (!postData[field]) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `${field} is required` 
+        });
+      }
+    }
+    
+    // In a real implementation, this would save to the database
+    // For now, we'll return a mock response
+    const newPost = {
+      id: Date.now().toString(),
+      ...postData,
+      date: new Date().toISOString().split('T')[0],
+      readTime: postData.readTime || '5 min read',
+      featured: postData.featured || false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Blog post created successfully',
+      post: newPost
+    });
+  } catch (error) {
+    console.error('Error creating blog post:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create blog post' 
+    });
+  }
+});
+
+// Update blog post
+router.put('/blogs/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const postData = req.body;
+    
+    // In a real implementation, this would update the database
+    // For now, we'll return a mock response
+    const updatedPost = {
+      id,
+      ...postData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    res.json({ 
+      success: true, 
+      message: `Blog post ${id} updated successfully`,
+      post: updatedPost
+    });
+  } catch (error) {
+    console.error('Error updating blog post:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update blog post' 
+    });
+  }
+});
+
+// Delete blog post
+router.delete('/blogs/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    
+    // In a real implementation, this would delete from the database
+    // For now, we'll return a mock response
+    res.json({ 
+      success: true, 
+      message: `Blog post ${id} deleted successfully`
+    });
+  } catch (error) {
+    console.error('Error deleting blog post:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to delete blog post' 
+    });
+  }
+});
+
+// Upload blog image
+router.post('/blogs/upload-image', authenticateAdmin, upload.single('image'), async (req: AdminRequest, res: express.Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No image file provided' 
+      });
+    }
+
+    // In a real implementation, you might want to store this in a database
+    // For now, we'll return the file path
+    const imageUrl = `/uploads/blog-images/${req.file.filename}`;
+    
+    res.json({ 
+      success: true, 
+      message: 'Image uploaded successfully',
+      imageUrl
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to upload image' 
+    });
   }
 });
 

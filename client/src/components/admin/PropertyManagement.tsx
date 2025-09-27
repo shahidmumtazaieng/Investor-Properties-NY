@@ -6,6 +6,7 @@ import Card from '../ui/Card';
 import Input from '../ui/Input';
 import Textarea from '../ui/Textarea';
 import Select from '../ui/Select';
+import * as XLSX from 'xlsx';
 
 interface Property {
   id: string;
@@ -77,8 +78,26 @@ const PropertyManagement: React.FC = () => {
   
   // Bulk import state
   const [googleSheetUrl, setGoogleSheetUrl] = useState('');
-  const [sheetProperties, setSheetProperties] = useState<Partial<Property>[]>([]);
+  const [fileColumns, setFileColumns] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [sheetProperties, setSheetProperties] = useState<Record<string, any>[]>([]);
+  const [mappedProperties, setMappedProperties] = useState<Record<string, any>[]>([]);
   const [importLoading, setImportLoading] = useState(false);
+  
+  // Required columns mapping
+  const requiredColumns = {
+    address: 'Address',
+    neighborhood: 'Neighborhood',
+    borough: 'Borough',
+    propertyType: 'Property Type',
+    beds: 'Bedrooms',
+    baths: 'Bathrooms',
+    sqft: 'Square Feet',
+    price: 'Price',
+    description: 'Description',
+    condition: 'Condition',
+    access: 'Access'
+  };
 
   useEffect(() => {
     // Check if user is admin
@@ -259,14 +278,33 @@ const PropertyManagement: React.FC = () => {
   const handlePublishProperties = async () => {
     try {
       setLoading(true);
-      // In a real implementation, this would update properties on the backend
-      console.log('Publishing properties:', sheetProperties);
-      alert('Properties published successfully!');
-      setSheetProperties([]);
-      setGoogleSheetUrl('');
-      setLoading(false);
+      
+      const response = await fetch('/api/admin/properties/import/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ properties: mappedProperties }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`${data.properties.length} properties published successfully!`);
+        setSheetProperties([]);
+        setMappedProperties([]);
+        setColumnMapping({});
+        setFileColumns([]);
+        // Refresh the properties list
+        fetchProperties();
+      } else {
+        alert('Failed to publish properties: ' + (data.message || 'Unknown error'));
+      }
     } catch (error) {
       console.error('Error publishing properties:', error);
+      alert('Error publishing properties. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -298,6 +336,96 @@ const PropertyManagement: React.FC = () => {
       alert('Error sending notification. Please try again.');
       setLoading(false);
     }
+  };
+
+  // New functions for file upload and column mapping
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/admin/properties/import/file', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.properties) {
+        setSheetProperties(data.properties);
+        
+        // Extract column names from the first property
+        if (data.properties.length > 0) {
+          const firstProperty = data.properties[0];
+          const columns = Object.keys(firstProperty);
+          setFileColumns(columns);
+          
+          // Set default column mapping
+          const defaultMapping: Record<string, string> = {};
+          Object.keys(requiredColumns).forEach(field => {
+            // Try to find a matching column by name (case insensitive)
+            const matchingColumn = columns.find(col => 
+              col.toLowerCase().includes(field.toLowerCase()) || 
+              field.toLowerCase().includes(col.toLowerCase())
+            );
+            if (matchingColumn) {
+              defaultMapping[field] = matchingColumn;
+            }
+          });
+          setColumnMapping(defaultMapping);
+        }
+      } else {
+        alert('Failed to import properties: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error importing properties:', error);
+      alert('Error importing properties. Please try again.');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleColumnMappingChange = (field: string, column: string) => {
+    setColumnMapping(prev => ({
+      ...prev,
+      [field]: column
+    }));
+  };
+
+  const isMappingComplete = () => {
+    return Object.keys(requiredColumns).every(field => columnMapping[field]);
+  };
+
+  const applyColumnMapping = () => {
+    const mapped = sheetProperties.map(row => {
+      const mappedProperty: Record<string, any> = {};
+      Object.keys(requiredColumns).forEach(field => {
+        const column = columnMapping[field];
+        if (column && (row as Record<string, any>)[column] !== undefined) {
+          // Handle numeric fields
+          if (field === 'beds' || field === 'sqft') {
+            mappedProperty[field] = Number((row as Record<string, any>)[column]);
+          } else if (field === 'baths') {
+            mappedProperty[field] = String((row as Record<string, any>)[column]);
+          } else {
+            mappedProperty[field] = (row as Record<string, any>)[column];
+          }
+        }
+      });
+      return mappedProperty;
+    });
+    setMappedProperties(mapped);
+  };
+
+  const handleImportFromFile = async () => {
+    // This function is now handled by the file upload process
+    // The import happens when the file is selected
   };
 
   if (!user || user.userType !== 'admin') {
@@ -353,7 +481,7 @@ const PropertyManagement: React.FC = () => {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Bulk Import from Google Sheets
+              Bulk Import from File
             </button>
           </nav>
         </div>
@@ -576,44 +704,87 @@ const PropertyManagement: React.FC = () => {
           </Card>
         )}
 
-        {/* Bulk Import from Google Sheets */}
+        {/* Bulk Import from File */}
         {activeTab === 'bulk' && (
           <div className="space-y-6">
             <Card className="bg-white shadow">
               <div className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Import Properties from Google Sheets</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Bulk Import Properties from File</h2>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Google Sheets URL
+                    Upload Excel/CSV File
                   </label>
                   <div className="flex space-x-2">
-                    <Input
-                      type="text"
-                      placeholder="Paste your Google Sheets URL here"
-                      value={googleSheetUrl}
-                      onChange={(e) => setGoogleSheetUrl(e.target.value)}
-                      className="flex-grow"
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleFileUpload}
+                      className="block w-full text-sm text-gray-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-md file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-primary-blue file:text-white
+                        hover:file:bg-blue-700"
                     />
                     <Button
                       variant="primary"
-                      onClick={handleImportFromGoogleSheets}
-                      disabled={importLoading || !googleSheetUrl}
+                      onClick={handleImportFromFile}
+                      disabled={importLoading || sheetProperties.length === 0}
                     >
                       {importLoading ? 'Importing...' : 'Import'}
                     </Button>
                   </div>
                   <p className="mt-2 text-sm text-gray-500">
-                    Make sure your Google Sheet is shared with "Anyone with the link" and follows the required format.
+                    Upload an Excel (.xlsx, .xls) or CSV file with property data. 
+                    The file should contain columns for: address, neighborhood, borough, propertyType, beds, baths, sqft, price, description, etc.
                   </p>
                 </div>
+                
+                {/* Column Mapping Section */}
+                {sheetProperties.length > 0 && columnMapping && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-3">Map Columns</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Match your file columns to the required property fields:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {Object.keys(requiredColumns).map((field) => (
+                        <div key={field} className="flex items-center">
+                          <label className="block text-sm font-medium text-gray-700 w-32">
+                            {requiredColumns[field as keyof typeof requiredColumns]}:
+                          </label>
+                          <select
+                            value={columnMapping[field] || ''}
+                            onChange={(e) => handleColumnMappingChange(field, e.target.value)}
+                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                          >
+                            <option value="">Select column</option>
+                            {fileColumns.map((col) => (
+                              <option key={col} value={col}>{col}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        variant="secondary"
+                        onClick={applyColumnMapping}
+                        disabled={isMappingComplete()}
+                      >
+                        Apply Mapping
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
 
-            {sheetProperties.length > 0 && (
+            {sheetProperties.length > 0 && mappedProperties.length > 0 && (
               <Card className="bg-white shadow">
                 <div className="p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    Imported Properties ({sheetProperties.length})
+                    Imported Properties ({mappedProperties.length})
                   </h2>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -637,7 +808,7 @@ const PropertyManagement: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {sheetProperties.map((property, index) => (
+                        {mappedProperties.map((property, index) => (
                           <tr key={index}>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">{property.address}</div>
