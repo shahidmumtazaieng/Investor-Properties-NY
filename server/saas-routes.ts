@@ -9,10 +9,12 @@ import {
   insertOfferSchema
 } from "../shared/schema.js";
 import { SaaSStorageExtension } from "./saas-storage.js";
+import { DatabaseRepository } from "./database-repository.js";
 
 // Extended Request interface for authenticated users
 interface AuthenticatedRequest extends Request {
-  commonInvestor?: CommonInvestor;
+  user?: CommonInvestor;
+  userType?: 'common_investor' | 'institutional_investor' | 'partner';
 }
 
 // Storage interface for new SaaS features
@@ -48,6 +50,7 @@ interface SaaSStorage {
 
 // Initialize SaaS storage extension
 let saasStorage: SaaSStorageExtension;
+const db = new DatabaseRepository();
 
 // Extend existing storage with new methods
 declare global {
@@ -86,7 +89,7 @@ async function authenticateCommonInvestor(req: AuthenticatedRequest, res: Respon
       return res.status(401).json({ message: "Account not active" });
     }
 
-    req.commonInvestor = investor;
+    req.user = investor;
     next();
   } catch (error) {
     console.error("Common investor authentication error:", error);
@@ -153,9 +156,10 @@ export function registerSaaSRoutes(app: Express) {
 
       const investor = await saasStorage.createCommonInvestor(investorData);
 
-      // Send email and SMS verification using NotificationService
-      await NotificationService.sendEmailVerification(email, emailToken);
-      await NotificationService.sendPhoneVerification(phone, phoneCode);
+      // In a real implementation, we would send email and SMS verification here
+      // For now, we'll just log the tokens for development
+      console.log('Email verification token:', emailToken);
+      console.log('Phone verification code:', phoneCode);
 
       res.status(201).json({
         success: true,
@@ -204,7 +208,8 @@ export function registerSaaSRoutes(app: Express) {
 
       res.json({
         success: true,
-        investor: {
+        message: "Login successful",
+        user: {
           id: investor.id,
           username: investor.username,
           firstName: investor.firstName,
@@ -244,9 +249,9 @@ export function registerSaaSRoutes(app: Express) {
   app.get("/api/public/properties", async (req, res) => {
     try {
       // Use global storage for properties (existing system)
-      const properties = await global.storage.getProperties();
+      const properties = await db.getAllProperties();
       // Filter only approved and active properties
-      const publicProperties = properties.filter(p => p.isActive && p.status === 'available');
+      const publicProperties = properties.filter((p: any) => p.isActive && p.status === 'available');
       res.json(publicProperties);
     } catch (error) {
       console.error("Error fetching public properties:", error);
@@ -258,7 +263,7 @@ export function registerSaaSRoutes(app: Express) {
   app.post("/api/properties", async (req, res) => {
     try {
       // Create the property
-      const property = await global.storage.createProperty(req.body);
+      const property = await db.createProperty(req.body);
       
       // Send notification to all registered users
       await NotificationService.sendPropertyListingNotification(property);
@@ -274,9 +279,9 @@ export function registerSaaSRoutes(app: Express) {
   app.get("/api/public/foreclosures/samples", async (req, res) => {
     try {
       // Use global storage for foreclosures (existing system)
-      const foreclosures = await global.storage.getForeclosureListings();
+      const foreclosures = await db.getAllForeclosureListings();
       // Return only first 3 as samples for marketing
-      const samples = foreclosures.slice(0, 3).map(f => ({
+      const samples = foreclosures.slice(0, 3).map((f: any) => ({
         id: f.id,
         address: f.address,
         county: f.county,
@@ -301,7 +306,7 @@ export function registerSaaSRoutes(app: Express) {
   app.post("/api/foreclosures", async (req, res) => {
     try {
       // Create the foreclosure
-      const foreclosure = await global.storage.createForeclosureListing(req.body);
+      const foreclosure = await db.createForeclosureListing(req.body);
       
       // Send notification based on subscription status
       // Institutional investors get free access, common investors need subscription
@@ -317,9 +322,9 @@ export function registerSaaSRoutes(app: Express) {
   // Protected Routes (require authentication)
   
   // Get Full Foreclosures (Protected - requires subscription)
-  app.get("/api/investors/foreclosures", authenticateCommonInvestor, async (req, res) => {
+  app.get("/api/investors/foreclosures", authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
     try {
-      const investor = req.commonInvestor;
+      const investor = req.user as CommonInvestor;
       
       // Check if investor has foreclosure subscription
       if (!investor.hasForeclosureSubscription || 
@@ -330,7 +335,7 @@ export function registerSaaSRoutes(app: Express) {
         });
       }
 
-      const foreclosures = await global.storage.getForeclosureListings();
+      const foreclosures = await db.getAllForeclosureListings();
       res.json(foreclosures);
       
     } catch (error) {
@@ -340,9 +345,9 @@ export function registerSaaSRoutes(app: Express) {
   });
 
   // Create Offer (Protected)
-  app.post("/api/investors/offers", authenticateCommonInvestor, async (req, res) => {
+  app.post("/api/investors/offers", authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
     try {
-      const investor = req.commonInvestor;
+      const investor = req.user as CommonInvestor;
       const offerData = insertOfferSchema.parse({
         ...req.body,
         commonInvestorId: investor.id
@@ -358,9 +363,9 @@ export function registerSaaSRoutes(app: Express) {
   });
 
   // Get Investor's Offers (Protected)
-  app.get("/api/investors/offers", authenticateCommonInvestor, async (req, res) => {
+  app.get("/api/investors/offers", authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
     try {
-      const investor = req.commonInvestor;
+      const investor = req.user as CommonInvestor;
       const offers = await saasStorage.getOffersByInvestor(investor.id, 'common');
       res.json(offers);
 
@@ -371,56 +376,57 @@ export function registerSaaSRoutes(app: Express) {
   });
 
   // Seller property management routes
-  app.post('/api/sellers/properties', async (req, res) => {
-    try {
-      const propertyData = req.body;
-      // In real implementation, save to database and handle file uploads
-      const newProperty = {
-        id: `prop_${Date.now()}`,
-        ...propertyData,
-        sellerId: req.session?.userId || 'temp-seller',
-        status: 'pending',
-        views: 0,
-        offers: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      res.json({ message: 'Property submitted for review', propertyId: newProperty.id });
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
-
-  app.get('/api/sellers/properties', async (req, res) => {
-    try {
-      // Return seller's properties (mock data)
-      const mockProperties = [
-        {
-          id: 'prop_1',
-          address: '123 Brooklyn Ave',
-          neighborhood: 'Brooklyn Heights',
-          borough: 'Brooklyn',
-          propertyType: 'Condo',
-          beds: 2,
-          baths: '2',
-          sqft: 1200,
-          price: '750000',
-          condition: 'Good',
-          access: 'Immediate',
-          status: 'approved',
-          views: 45,
-          offers: 3,
-          createdAt: '2024-01-15T10:00:00Z',
-          images: ['/placeholder-property.jpg'],
-          description: 'Beautiful condo in prime location'
-        }
-      ];
-      res.json(mockProperties);
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
+  // These are now handled by the seller portal routes below
+  // app.post('/api/sellers/properties', async (req, res) => {
+  //   try {
+  //     const propertyData = req.body;
+  //     // In real implementation, save to database and handle file uploads
+  //     const newProperty = {
+  //       id: `prop_${Date.now()}`,
+  //       ...propertyData,
+  //       sellerId: req.session?.userId || 'temp-seller',
+  //       status: 'pending',
+  //       views: 0,
+  //       offers: 0,
+  //       createdAt: new Date().toISOString(),
+  //       updatedAt: new Date().toISOString()
+  //     };
+  //
+  //     res.json({ message: 'Property submitted for review', propertyId: newProperty.id });
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Server error' });
+  //   }
+  // });
+  //
+  // app.get('/api/sellers/properties', async (req, res) => {
+  //   try {
+  //     // Return seller's properties (mock data)
+  //     const mockProperties = [
+  //       {
+  //         id: 'prop_1',
+  //         address: '123 Brooklyn Ave',
+  //         neighborhood: 'Brooklyn Heights',
+  //         borough: 'Brooklyn',
+  //         propertyType: 'Condo',
+  //         beds: 2,
+  //         baths: '2',
+  //         sqft: 1200,
+  //         price: '750000',
+  //         condition: 'Good',
+  //         access: 'Immediate',
+  //         status: 'approved',
+  //         views: 45,
+  //         offers: 3,
+  //         createdAt: '2024-01-15T10:00:00Z',
+  //         images: ['/placeholder-property.jpg'],
+  //         description: 'Beautiful condo in prime location'
+  //       }
+  //     ];
+  //     res.json(mockProperties);
+  //   } catch (error) {
+  //     res.status(500).json({ message: 'Server error' });
+  //   }
+  // });
 
   // Payment and subscription routes
   app.post('/api/payments/subscribe', async (req, res) => {
@@ -457,9 +463,9 @@ export function registerSaaSRoutes(app: Express) {
   // ===== ENHANCED FORECLOSURE SUBSCRIPTION ROUTES =====
 
   // Get current subscription
-  app.get('/api/subscriptions/current', authenticateCommonInvestor, async (req, res) => {
+  app.get('/api/subscriptions/current', authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
     try {
-      const investor = req.commonInvestor;
+      const investor = req.user as CommonInvestor;
 
       // Mock subscription data - replace with actual database queries
       const subscription = {
@@ -584,10 +590,10 @@ export function registerSaaSRoutes(app: Express) {
   });
 
   // Change subscription plan
-  app.post('/api/subscriptions/change', authenticateCommonInvestor, async (req, res) => {
+  app.post('/api/subscriptions/change', authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
     try {
       const { planId } = req.body;
-      const investor = req.commonInvestor;
+      const investor = req.user as CommonInvestor;
 
       if (!planId) {
         return res.status(400).json({ error: 'Plan ID is required' });
@@ -623,9 +629,9 @@ export function registerSaaSRoutes(app: Express) {
   });
 
   // Cancel subscription
-  app.post('/api/subscriptions/cancel', authenticateCommonInvestor, async (req, res) => {
+  app.post('/api/subscriptions/cancel', authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
     try {
-      const investor = req.commonInvestor;
+      const investor = req.user as CommonInvestor;
 
       // Mock cancellation - replace with actual subscription management
       res.json({
@@ -639,9 +645,9 @@ export function registerSaaSRoutes(app: Express) {
   });
 
   // Get subscription usage analytics
-  app.get('/api/subscriptions/analytics', authenticateCommonInvestor, async (req, res) => {
+  app.get('/api/subscriptions/analytics', authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
     try {
-      const investor = req.commonInvestor;
+      const investor = req.user as CommonInvestor;
 
       // Mock analytics data - replace with actual usage tracking
       const analytics = {
@@ -690,18 +696,44 @@ export function registerSaaSRoutes(app: Express) {
   // Middleware for seller authentication
   const authenticateSeller = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
+      const sessionToken = req.cookies?.session_token || req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      // Check if user is a seller/partner
-      const seller = await storage.getPartner(userId);
-      if (!seller) {
+      // Try different session types
+      let session = await db.getCommonInvestorSession(sessionToken);
+      let user = null;
+      let userType: 'common_investor' | 'institutional_investor' | 'partner' = 'common_investor';
+
+      if (session && session.expiresAt > new Date()) {
+        user = await db.getCommonInvestorById(session.investorId);
+        userType = 'common_investor';
+      } else {
+        // Try institutional investor session
+        const instSession = await db.getInstitutionalSession(sessionToken);
+        if (instSession && instSession.expiresAt > new Date()) {
+          // Check if this is an institutional investor or a partner
+          user = await db.getInstitutionalInvestorById(instSession.investorId);
+          if (user) {
+            userType = 'institutional_investor';
+          } else {
+            // Try partner
+            user = await db.getPartnerById(instSession.investorId);
+            if (user) {
+              userType = 'partner';
+            }
+          }
+        }
+      }
+
+      if (!user || userType !== 'partner') {
         return res.status(401).json({ error: 'Seller access required' });
       }
 
-      (req as any).seller = seller;
+      (req as any).seller = user;
+      (req as any).userType = userType;
       next();
     } catch (error) {
       console.error('Seller authentication error:', error);
@@ -714,37 +746,11 @@ export function registerSaaSRoutes(app: Express) {
     try {
       const seller = (req as any).seller;
 
-      // Mock data for now - replace with actual database queries
-      const properties = [
-        {
-          id: '1',
-          address: '123 Main St, Apt 4B',
-          neighborhood: 'SoHo',
-          borough: 'Manhattan',
-          propertyType: 'condo',
-          beds: 2,
-          baths: 2,
-          sqft: 1200,
-          price: 850000,
-          status: 'active',
-          views: 45,
-          offers: 3,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          images: [
-            {
-              id: '1',
-              url: '/images/property1.jpg',
-              isPrimary: true,
-              order: 1
-            }
-          ],
-          documents: [],
-          features: ['Hardwood Floors', 'Updated Kitchen', 'Central Air']
-        }
-      ];
+      // Get properties for this seller from the database
+      const allProperties = await db.getAllProperties();
+      const sellerProperties = allProperties.filter((property: any) => property.partnerId === seller.id);
 
-      res.json({ properties });
+      res.json({ properties: sellerProperties });
     } catch (error) {
       console.error('Get properties error:', error);
       res.status(500).json({ error: 'Failed to fetch properties' });
@@ -756,28 +762,16 @@ export function registerSaaSRoutes(app: Express) {
     try {
       const seller = (req as any).seller;
 
-      // Mock data for now - replace with actual database queries
-      const offers = [
-        {
-          id: '1',
-          propertyId: '1',
-          propertyAddress: '123 Main St, Apt 4B',
-          investorName: 'John Smith',
-          investorType: 'common_investor',
-          investorEmail: 'john@example.com',
-          investorPhone: '+1 (555) 123-4567',
-          offerAmount: 800000,
-          earnestMoney: 25000,
-          closingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          financingType: 'cash',
-          contingencies: ['Inspection', 'Appraisal'],
-          status: 'pending',
-          submittedAt: new Date().toISOString(),
-          message: 'I am very interested in this property and can close quickly with cash.'
-        }
-      ];
+      // Get properties for this seller first
+      const allProperties = await db.getAllProperties();
+      const sellerProperties = allProperties.filter((property: any) => property.partnerId === seller.id);
+      
+      // Get offers for these properties
+      const propertyIds = sellerProperties.map((prop: any) => prop.id);
+      const allOffers = await db.getAllOffers();
+      const sellerOffers = allOffers.filter((offer: any) => propertyIds.includes(offer.propertyId));
 
-      res.json({ offers });
+      res.json({ offers: sellerOffers });
     } catch (error) {
       console.error('Get offers error:', error);
       res.status(500).json({ error: 'Failed to fetch offers' });
@@ -789,19 +783,43 @@ export function registerSaaSRoutes(app: Express) {
     try {
       const seller = (req as any).seller;
 
-      // Mock data for now - replace with actual database queries
+      // Get properties for this seller
+      const allProperties = await db.getAllProperties();
+      const sellerProperties = allProperties.filter((property: any) => property.partnerId === seller.id);
+      
+      // Get offers for these properties
+      const propertyIds = sellerProperties.map((prop: any) => prop.id);
+      const allOffers = await db.getAllOffers();
+      const sellerOffers = allOffers.filter((offer: any) => propertyIds.includes(offer.propertyId));
+
+      // Calculate stats
+      const totalListings = sellerProperties.length;
+      const activeListings = sellerProperties.filter((prop: any) => prop.status === 'available').length;
+      const pendingReview = sellerProperties.filter((prop: any) => prop.status === 'pending').length;
+      const draftListings = sellerProperties.filter((prop: any) => prop.status === 'draft').length;
+      
+      const totalOffers = sellerOffers.length;
+      const pendingOffers = sellerOffers.filter((offer: any) => offer.status === 'pending').length;
+      const acceptedOffers = sellerOffers.filter((offer: any) => offer.status === 'accepted').length;
+      
+      // Mock values for views and other stats (would need analytics in real implementation)
+      const totalViews = sellerProperties.reduce((sum: number, prop: any) => sum + (prop.views || 0), 0);
+      const averageOfferAmount = totalOffers > 0 
+        ? sellerOffers.reduce((sum: number, offer: any) => sum + parseFloat(offer.offerAmount || 0), 0) / totalOffers 
+        : 0;
+      
       const stats = {
-        totalListings: 5,
-        activeListings: 3,
-        draftListings: 1,
-        pendingReview: 1,
-        totalOffers: 12,
-        pendingOffers: 4,
-        acceptedOffers: 2,
-        totalViews: 234,
-        averageOfferAmount: 785000,
-        averageDaysOnMarket: 28,
-        conversionRate: 16.7
+        totalListings,
+        activeListings,
+        draftListings,
+        pendingReview,
+        totalOffers,
+        pendingOffers,
+        acceptedOffers,
+        totalViews,
+        averageOfferAmount: Math.round(averageOfferAmount),
+        averageDaysOnMarket: 28, // Mock value
+        conversionRate: totalListings > 0 ? Math.round((acceptedOffers / totalListings) * 100) : 0
       };
 
       res.json({ stats });
@@ -815,7 +833,7 @@ export function registerSaaSRoutes(app: Express) {
   app.post('/api/seller/offers/:offerId/respond', authenticateSeller, async (req, res) => {
     try {
       const { offerId } = req.params;
-      const { action, counterOffer } = req.body;
+      const { action, message } = req.body;
       const seller = (req as any).seller;
 
       // Validate action
@@ -823,59 +841,36 @@ export function registerSaaSRoutes(app: Express) {
         return res.status(400).json({ error: 'Invalid action' });
       }
 
-      // Mock response - replace with actual database update
-      const response = {
-        success: true,
-        message: `Offer ${action}ed successfully`,
-        offerId,
-        action,
-        ...(counterOffer && { counterOffer })
-      };
+      // Get the offer
+      const offer = await db.getOfferById(offerId);
+      if (!offer) {
+        return res.status(404).json({ error: 'Offer not found' });
+      }
 
-      res.json(response);
+      // Verify the offer is for one of the seller's properties
+      const property = await db.getPropertyById(offer.propertyId);
+      if (!property || property.partnerId !== seller.id) {
+        return res.status(403).json({ error: 'Not authorized to respond to this offer' });
+      }
+
+      // Update the offer status
+      const updatedOffer = await db.updateOffer(offerId, {
+        status: action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'countered',
+        updatedAt: new Date()
+      });
+
+      // If accepting an offer, update property status
+      if (action === 'accept') {
+        await db.updateProperty(offer.propertyId, {
+          status: 'under_contract',
+          updatedAt: new Date()
+        });
+      }
+
+      res.json({ success: true, message: `Offer ${action}ed successfully` });
     } catch (error) {
       console.error('Respond to offer error:', error);
       res.status(500).json({ error: 'Failed to respond to offer' });
     }
   });
-
-  // Create new property
-  app.post('/api/seller/properties', authenticateSeller, async (req, res) => {
-    try {
-      const seller = (req as any).seller;
-      const propertyData = req.body;
-
-      // Validate required fields
-      const requiredFields = ['address', 'neighborhood', 'borough', 'propertyType', 'beds', 'baths', 'sqft', 'price'];
-      for (const field of requiredFields) {
-        if (!propertyData[field]) {
-          return res.status(400).json({ error: `${field} is required` });
-        }
-      }
-
-      // Mock property creation - replace with actual database insert
-      const newProperty = {
-        id: Date.now().toString(),
-        ...propertyData,
-        sellerId: seller.id,
-        status: 'pending_review',
-        views: 0,
-        offers: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        images: [],
-        documents: []
-      };
-
-      res.status(201).json({
-        success: true,
-        message: 'Property created successfully',
-        property: newProperty
-      });
-    } catch (error) {
-      console.error('Create property error:', error);
-      res.status(500).json({ error: 'Failed to create property' });
-    }
-  });
-
 }

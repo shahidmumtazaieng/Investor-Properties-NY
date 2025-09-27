@@ -9,6 +9,9 @@ interface User {
   lastName?: string;
   personName?: string;
   institutionName?: string;
+  jobTitle?: string;
+  workPhone?: string;
+  personalPhone?: string;
   hasForeclosureSubscription?: boolean;
   subscriptionPlan?: string;
   status?: string;

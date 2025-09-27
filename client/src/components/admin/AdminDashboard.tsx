@@ -193,6 +193,20 @@ const AdminDashboard: React.FC = () => {
                       >
                         Foreclosure Management
                       </Button>
+                      <Button 
+                        variant="primary" 
+                        className="justify-center"
+                        onClick={() => navigate('/admin/offers')}
+                      >
+                        Offer Management
+                      </Button>
+                      <Button 
+                        variant="primary" 
+                        className="justify-center"
+                        onClick={() => navigate('/admin/foreclosure-bids')}
+                      >
+                        Foreclosure Bid Management
+                      </Button>
                     </div>
                   </div>
                 </Card>

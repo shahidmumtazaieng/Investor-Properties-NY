@@ -23,6 +23,10 @@ import Analytics from './components/admin/Analytics';
 import EmailCampaigns from './components/admin/EmailCampaigns';
 import SecurityMonitoring from './components/admin/SecurityMonitoring';
 import ForeclosureManagement from './components/admin/ForeclosureManagement';
+// Seller components
+import SellerDashboard from './components/seller/SellerDashboard';
+import SellerProperties from './components/seller/SellerProperties';
+import SellerOffers from './components/seller/SellerOffers';
 
 const AppContent: React.FC = () => {
   const { user, loading, logout } = useAuth();
@@ -42,9 +46,19 @@ const AppContent: React.FC = () => {
   const getDashboardRoute = () => {
     if (!user) return <Navigate to="/auth/investor" replace />;
 
-    // For now, redirect all authenticated users to properties page
-    // TODO: Implement proper dashboard components
-    return <Navigate to="/properties" replace />;
+    switch (user.userType) {
+      case 'common_investor':
+      case 'institutional_investor':
+        // For now, redirect all authenticated users to properties page
+        // TODO: Implement proper dashboard components
+        return <Navigate to="/properties" replace />;
+      case 'seller':
+        return <SellerDashboard />;
+      case 'admin':
+        return <AdminDashboard />;
+      default:
+        return <Navigate to="/properties" replace />;
+    }
   };
 
   // WhatsApp link for the phone number (212) 555-0123
@@ -80,6 +94,11 @@ const AppContent: React.FC = () => {
             <Route path="/admin/campaigns" element={user?.userType === 'admin' ? <EmailCampaigns /> : <Navigate to="/admin/login" replace />} />
             <Route path="/admin/security" element={user?.userType === 'admin' ? <SecurityMonitoring /> : <Navigate to="/admin/login" replace />} />
             <Route path="/admin/foreclosures" element={user?.userType === 'admin' ? <ForeclosureManagement /> : <Navigate to="/admin/login" replace />} />
+
+            {/* Seller Routes */}
+            <Route path="/seller/dashboard" element={user?.userType === 'seller' ? <SellerDashboard /> : <Navigate to="/auth/seller" replace />} />
+            <Route path="/seller/properties" element={user?.userType === 'seller' ? <SellerProperties /> : <Navigate to="/auth/seller" replace />} />
+            <Route path="/seller/offers" element={user?.userType === 'seller' ? <SellerOffers /> : <Navigate to="/auth/seller" replace />} />
 
             {/* Protected Routes - Simplified Dashboard */}
             {user ? (

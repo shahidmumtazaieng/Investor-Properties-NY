@@ -7,7 +7,7 @@ const db = new DatabaseRepository();
 // Middleware to check session
 interface AuthenticatedRequest extends express.Request {
   user?: any;
-  userType?: 'common_investor' | 'institutional_investor' | 'partner';
+  userType?: 'common_investor' | 'institutional_investor' | 'seller';
 }
 
 // Authentication middleware
@@ -22,7 +22,7 @@ export const authenticateUser = async (req: AuthenticatedRequest, res: express.R
     // Try different session types
     let session = await db.getCommonInvestorSession(sessionToken);
     let user = null;
-    let userType: 'common_investor' | 'institutional_investor' | 'partner' = 'common_investor';
+    let userType: 'common_investor' | 'institutional_investor' | 'seller' = 'common_investor';
 
     if (session && session.expiresAt > new Date()) {
       user = await db.getCommonInvestorById(session.investorId);
@@ -31,8 +31,17 @@ export const authenticateUser = async (req: AuthenticatedRequest, res: express.R
       // Try institutional investor session
       const instSession = await db.getInstitutionalSession(sessionToken);
       if (instSession && instSession.expiresAt > new Date()) {
-        user = await db.getInstitutionalInvestorById(instSession.investorId);
-        userType = 'institutional_investor';
+        // Check if this is an institutional investor or a partner/seller
+        const institutionalInvestor = await db.getInstitutionalInvestorById(instSession.investorId);
+        const partner = await db.getPartnerById(instSession.investorId);
+        
+        if (institutionalInvestor) {
+          user = institutionalInvestor;
+          userType = 'institutional_investor';
+        } else if (partner) {
+          user = partner;
+          userType = 'seller';
+        }
       }
     }
 
@@ -394,6 +403,175 @@ router.post('/institutional/login', async (req: express.Request, res: express.Re
   }
 });
 
+// ==================== PARTNER/SELLER ROUTES ====================
+
+// Partner/Seller Registration
+router.post('/partners/register', async (req: express.Request, res: express.Response) => {
+  try {
+    const { username, password, email, firstName, lastName, company, phone } = req.body;
+    
+    // Validation
+    if (!username || !password || !email || !firstName || !lastName) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Password must be at least 6 characters' 
+      });
+    }
+
+    // Check if username or email already exists
+    const existingUsername = await db.getPartnerByUsername(username);
+    const existingEmail = await db.getPartnerByEmail(email);
+    
+    if (existingUsername) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username already exists' 
+      });
+    }
+    
+    if (existingEmail) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email already exists' 
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await db.hashPassword(password);
+    
+    // Generate verification tokens
+    const emailToken = db.generateEmailVerificationToken();
+    const phoneCode = db.generatePhoneVerificationCode();
+
+    const partnerData = {
+      username,
+      password: hashedPassword,
+      email,
+      firstName,
+      lastName,
+      company: company || null,
+      phone: phone || null,
+      isActive: true,
+      approvalStatus: 'pending',
+      emailVerified: false,
+      emailVerificationToken: emailToken,
+      emailVerificationSentAt: new Date(),
+      phoneVerified: false,
+      phoneVerificationCode: phoneCode,
+      phoneVerificationSentAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const partner = await db.createPartner(partnerData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful. Your account is pending approval.',
+      user: {
+        id: partner.id,
+        username: partner.username,
+        email: partner.email,
+        firstName: partner.firstName,
+        lastName: partner.lastName,
+        company: partner.company,
+        userType: 'seller'
+      },
+      requiresApproval: true
+    });
+
+  } catch (error) {
+    console.error('Partner registration error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Registration failed' 
+    });
+  }
+});
+
+// Partner/Seller Login
+router.post('/partners/login', async (req: express.Request, res: express.Response) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username and password required' 
+      });
+    }
+
+    const partner = await db.authenticatePartner(username, password);
+    
+    if (!partner) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
+
+    // Check if partner is active
+    if (!partner.isActive) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Account is not active' 
+      });
+    }
+
+    // Check if partner is approved
+    if (partner.approvalStatus !== 'approved') {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Account is pending approval' 
+      });
+    }
+
+    // Create session
+    const sessionToken = db.generateSessionToken();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    
+    // For now, we'll use the institutional session table for partners
+    // In a real implementation, we would have a separate partner sessions table
+    await db.createInstitutionalSession(partner.id, sessionToken, expiresAt);
+
+    // Set cookie
+    res.cookie('session_token', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      user: {
+        id: partner.id,
+        username: partner.username,
+        email: partner.email,
+        firstName: partner.firstName,
+        lastName: partner.lastName,
+        company: partner.company,
+        userType: 'seller'
+      }
+    });
+
+  } catch (error) {
+    console.error('Partner login error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Login failed' 
+    });
+  }
+});
+
 // ==================== ADMIN ROUTES ====================
 
 // Admin Login
@@ -462,7 +640,7 @@ router.post('/logout', authenticateUser, async (req: AuthenticatedRequest, res: 
     
     if (sessionToken) {
       // Delete session from database based on user type
-      if (req.userType === 'institutional_investor') {
+      if (req.userType === 'institutional_investor' || req.userType === 'seller') {
         await db.deleteInstitutionalSession(sessionToken);
       } else {
         await db.deleteCommonInvestorSession(sessionToken);
@@ -502,7 +680,7 @@ router.get('/status', async (req: express.Request, res: express.Response) => {
     // Try different session types
     let session = await db.getCommonInvestorSession(sessionToken);
     let user = null;
-    let userType: 'common_investor' | 'institutional_investor' | 'partner' = 'common_investor';
+    let userType: 'common_investor' | 'institutional_investor' | 'partner' | 'seller' = 'common_investor';
 
     if (session && session.expiresAt > new Date()) {
       user = await db.getCommonInvestorById(session.investorId);
@@ -511,8 +689,17 @@ router.get('/status', async (req: express.Request, res: express.Response) => {
       // Try institutional investor session
       const instSession = await db.getInstitutionalSession(sessionToken);
       if (instSession && instSession.expiresAt > new Date()) {
-        user = await db.getInstitutionalInvestorById(instSession.investorId);
-        userType = 'institutional_investor';
+        // Check if this is an institutional investor or a partner/seller
+        const institutionalInvestor = await db.getInstitutionalInvestorById(instSession.investorId);
+        const partner = await db.getPartnerById(instSession.investorId);
+        
+        if (institutionalInvestor) {
+          user = institutionalInvestor;
+          userType = 'institutional_investor';
+        } else if (partner) {
+          user = partner;
+          userType = 'seller';
+        }
       }
     }
 
@@ -541,6 +728,16 @@ router.get('/status', async (req: express.Request, res: express.Response) => {
       userObject.lastName = user.personName || '';
       // @ts-ignore
       userObject.companyName = user.institutionName || '';
+    } else if (userType === 'seller') {
+      // Partner/Seller properties
+      // @ts-ignore
+      userObject.firstName = user.firstName || '';
+      // @ts-ignore
+      userObject.lastName = user.lastName || '';
+      // @ts-ignore
+      userObject.company = user.company || '';
+      // @ts-ignore
+      userObject.approvalStatus = user.approvalStatus || 'pending';
     } else {
       // Common investor properties
       // @ts-ignore
