@@ -5,6 +5,32 @@ import { useAuth } from '../../contexts/AuthContext';
 type InvestorType = 'common' | 'institutional';
 type AuthMode = 'signin' | 'signup';
 
+// Common investor experience options
+const investmentExperienceOptions = [
+  'First Time Bidder',
+  '1-2 Years Experience',
+  '3-5 Years Experience',
+  '5+ Years Experience'
+];
+
+// Common investor budget options
+const investmentBudgetOptions = [
+  'Under $100K',
+  '$100K - $250K',
+  '$250K - $500K',
+  '$500K - $1M',
+  '$1M+'
+];
+
+// Common investor preferred areas
+const preferredAreas = [
+  'Manhattan',
+  'Brooklyn',
+  'Queens',
+  'Bronx',
+  'Staten Island'
+];
+
 const InvestorAuth: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -18,6 +44,24 @@ const InvestorAuth: React.FC = () => {
   // Get plan from URL params for direct subscription flow
   const planFromUrl = searchParams.get('plan');
 
+  // Common investor additional fields
+  const [commonInvestorData, setCommonInvestorData] = useState({
+    investmentExperience: '',
+    investmentBudget: '',
+    preferredAreas: [] as string[]
+  });
+
+  // Institutional investor additional fields
+  const [institutionalInvestorData, setInstitutionalInvestorData] = useState({
+    fullName: '',
+    jobTitle: '',
+    workPhone: '',
+    personalPhone: '',
+    institutionName: '',
+    institutionalEmail: '',
+    businessCard: null as File | null
+  });
+
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -26,10 +70,6 @@ const InvestorAuth: React.FC = () => {
     firstName: '',
     lastName: '',
     phone: '',
-    company: '', // For institutional
-    jobTitle: '', // For institutional
-    workPhone: '', // For institutional
-    personalPhone: '', // For institutional
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,6 +78,52 @@ const InvestorAuth: React.FC = () => {
       [e.target.name]: e.target.value
     }));
     setError('');
+  };
+
+  const handleCommonInvestorChange = (field: string, value: string | string[]) => {
+    setCommonInvestorData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleInstitutionalInvestorChange = (field: string, value: string | File | null) => {
+    setInstitutionalInvestorData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleAreaChange = (area: string) => {
+    setCommonInvestorData(prev => {
+      const newAreas = prev.preferredAreas.includes(area)
+        ? prev.preferredAreas.filter(a => a !== area)
+        : [...prev.preferredAreas, area];
+      
+      return {
+        ...prev,
+        preferredAreas: newAreas
+      };
+    });
+  };
+
+  const handleBusinessCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type and size
+      const validTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        setError('Please upload a valid file (JPEG, PNG, or PDF)');
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('File size must be less than 5MB');
+        return;
+      }
+      
+      handleInstitutionalInvestorChange('businessCard', file);
+    }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -91,9 +177,80 @@ const InvestorAuth: React.FC = () => {
       return;
     }
 
+    // Additional validation for common investors
+    if (investorType === 'common' && authMode === 'signup') {
+      if (!formData.firstName.trim()) {
+        setError('First name is required');
+        setLoading(false);
+        return;
+      }
+      if (!formData.lastName.trim()) {
+        setError('Last name is required');
+        setLoading(false);
+        return;
+      }
+      if (!formData.phone.trim()) {
+        setError('Phone number is required');
+        setLoading(false);
+        return;
+      }
+      if (!commonInvestorData.investmentExperience) {
+        setError('Please select your investment experience');
+        setLoading(false);
+        return;
+      }
+      if (!commonInvestorData.investmentBudget) {
+        setError('Please select your investment budget');
+        setLoading(false);
+        return;
+      }
+      if (commonInvestorData.preferredAreas.length === 0) {
+        setError('Please select at least one preferred area');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Additional validation for institutional investors
+    if (investorType === 'institutional' && authMode === 'signup') {
+      if (!institutionalInvestorData.fullName.trim()) {
+        setError('Full name is required');
+        setLoading(false);
+        return;
+      }
+      if (!institutionalInvestorData.jobTitle.trim()) {
+        setError('Job title is required');
+        setLoading(false);
+        return;
+      }
+      if (!institutionalInvestorData.workPhone.trim()) {
+        setError('Work phone number is required');
+        setLoading(false);
+        return;
+      }
+      if (!institutionalInvestorData.personalPhone.trim()) {
+        setError('Personal phone number is required');
+        setLoading(false);
+        return;
+      }
+      if (!institutionalInvestorData.institutionName.trim()) {
+        setError('Institution name is required');
+        setLoading(false);
+        return;
+      }
+      if (!institutionalInvestorData.institutionalEmail.trim()) {
+        setError('Institutional email is required');
+        setLoading(false);
+        return;
+      }
+      // Note: Business card is optional
+    }
+
     try {
       const userType = investorType === 'common' ? 'common_investor' : 'institutional_investor';
-      const requestData = {
+      
+      // Prepare request data
+      const requestData: any = {
         username: formData.username,
         password: formData.password,
         email: formData.email,
@@ -101,14 +258,28 @@ const InvestorAuth: React.FC = () => {
         lastName: formData.lastName,
         phone: formData.phone,
         userType,
-        ...(investorType === 'institutional' && {
-          company: formData.company,
-          jobTitle: formData.jobTitle,
-          workPhone: formData.workPhone,
-          personalPhone: formData.personalPhone,
-        }),
         ...(planFromUrl && { subscriptionPlan: planFromUrl })
       };
+
+      // Add common investor data
+      if (investorType === 'common' && authMode === 'signup') {
+        requestData.investmentExperience = commonInvestorData.investmentExperience;
+        requestData.investmentBudget = commonInvestorData.investmentBudget;
+        requestData.preferredAreas = commonInvestorData.preferredAreas;
+      }
+
+      // Add institutional investor data
+      if (investorType === 'institutional' && authMode === 'signup') {
+        requestData.institutionalData = {
+          fullName: institutionalInvestorData.fullName,
+          jobTitle: institutionalInvestorData.jobTitle,
+          workPhone: institutionalInvestorData.workPhone,
+          personalPhone: institutionalInvestorData.personalPhone,
+          institutionName: institutionalInvestorData.institutionName,
+          institutionalEmail: institutionalInvestorData.institutionalEmail
+          // Note: Business card would need to be handled separately in a real implementation
+        };
+      }
 
       const result = await register(requestData);
 
@@ -123,10 +294,20 @@ const InvestorAuth: React.FC = () => {
           firstName: '',
           lastName: '',
           phone: '',
-          company: '',
+        });
+        setCommonInvestorData({
+          investmentExperience: '',
+          investmentBudget: '',
+          preferredAreas: []
+        });
+        setInstitutionalInvestorData({
+          fullName: '',
           jobTitle: '',
           workPhone: '',
           personalPhone: '',
+          institutionName: '',
+          institutionalEmail: '',
+          businessCard: null
         });
       } else {
         setError(result.message || 'Registration failed');
@@ -170,6 +351,13 @@ const InvestorAuth: React.FC = () => {
           </p>
         </div>
 
+        {/* Legend for required fields */}
+        {authMode === 'signup' && (
+          <div className="text-sm text-gray-500 flex items-center justify-end">
+            <span className="text-red-500 mr-1">*</span> Required field
+          </div>
+        )}
+
         {/* Investor Type Selection */}
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-lg font-medium text-gray-900 mb-3">Investor Type</h3>
@@ -204,10 +392,24 @@ const InvestorAuth: React.FC = () => {
         {/* Form */}
         <form className="mt-8 space-y-6" onSubmit={authMode === 'signin' ? handleSignIn : handleSignUp}>
           <div className="bg-white p-6 rounded-lg shadow space-y-4">
+            {/* Institutional Investor Benefits (only shown for institutional investors during signup) */}
+            {investorType === 'institutional' && authMode === 'signup' && (
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                <h4 className="text-md font-medium text-blue-800 mb-2">Institutional Investor Benefits</h4>
+                <ul className="text-sm text-blue-700 list-disc pl-5 space-y-1">
+                  <li>Priority access to high-value foreclosure auctions</li>
+                  <li>Dedicated institutional support team</li>
+                  <li>Bulk purchase opportunities</li>
+                  <li>Custom market analysis and reports</li>
+                  <li>Direct pipeline from courthouse steps</li>
+                </ul>
+              </div>
+            )}
+
             {/* Username */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
+                Username <span className="text-red-500">*</span>
               </label>
               <input
                 id="username"
@@ -223,7 +425,7 @@ const InvestorAuth: React.FC = () => {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Password <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -242,7 +444,7 @@ const InvestorAuth: React.FC = () => {
                 {/* Confirm Password */}
                 <div>
                   <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                    Confirm Password
+                    Confirm Password <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="confirmPassword"
@@ -258,7 +460,7 @@ const InvestorAuth: React.FC = () => {
                 {/* Email */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email
+                    Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="email"
@@ -271,83 +473,239 @@ const InvestorAuth: React.FC = () => {
                   />
                 </div>
 
-                {/* Name */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                      First Name
-                    </label>
-                    <input
-                      id="firstName"
-                      name="firstName"
-                      type="text"
-                      required
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                      Last Name
-                    </label>
-                    <input
-                      id="lastName"
-                      name="lastName"
-                      type="text"
-                      required
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                    Phone Number
-                  </label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                {/* Institutional-specific fields */}
-                {investorType === 'institutional' && (
-                  <>
+                {/* Name - Only for common investors, institutional investors use separate fields */}
+                {investorType === 'common' && (
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label htmlFor="company" className="block text-sm font-medium text-gray-700">
-                        Company/Institution Name
+                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                        First Name <span className="text-red-500">*</span>
                       </label>
                       <input
-                        id="company"
-                        name="company"
+                        id="firstName"
+                        name="firstName"
                         type="text"
                         required
-                        value={formData.company}
+                        value={formData.firstName}
                         onChange={handleInputChange}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     <div>
+                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                        Last Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="lastName"
+                        name="lastName"
+                        type="text"
+                        required
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Phone - Only for common investors, institutional investors use separate fields */}
+                {investorType === 'common' && (
+                  <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* Common Investor Additional Fields */}
+                {investorType === 'common' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Investment Experience <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={commonInvestorData.investmentExperience}
+                        onChange={(e) => handleCommonInvestorChange('investmentExperience', e.target.value)}
+                        required
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select your experience level</option>
+                        {investmentExperienceOptions.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Investment Budget <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={commonInvestorData.investmentBudget}
+                        onChange={(e) => handleCommonInvestorChange('investmentBudget', e.target.value)}
+                        required
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select your budget range</option>
+                        {investmentBudgetOptions.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Preferred Areas <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {preferredAreas.map(area => (
+                          <div key={area} className="flex items-center">
+                            <input
+                              id={`area-${area}`}
+                              type="checkbox"
+                              checked={commonInvestorData.preferredAreas.includes(area)}
+                              onChange={() => handleAreaChange(area)}
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor={`area-${area}`} className="ml-2 text-sm text-gray-700">
+                              {area}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      {commonInvestorData.preferredAreas.length === 0 && (
+                        <p className="text-red-500 text-sm mt-1">Please select at least one preferred area</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Institutional Investor Additional Fields */}
+                {investorType === 'institutional' && (
+                  <>
+                    <div>
+                      <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="fullName"
+                        name="fullName"
+                        type="text"
+                        required
+                        value={institutionalInvestorData.fullName}
+                        onChange={(e) => handleInstitutionalInvestorChange('fullName', e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
                       <label htmlFor="jobTitle" className="block text-sm font-medium text-gray-700">
-                        Job Title
+                        Job Title <span className="text-red-500">*</span>
                       </label>
                       <input
                         id="jobTitle"
                         name="jobTitle"
                         type="text"
                         required
-                        value={formData.jobTitle}
-                        onChange={handleInputChange}
+                        value={institutionalInvestorData.jobTitle}
+                        onChange={(e) => handleInstitutionalInvestorChange('jobTitle', e.target.value)}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="workPhone" className="block text-sm font-medium text-gray-700">
+                          Work Phone Number <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          id="workPhone"
+                          name="workPhone"
+                          type="tel"
+                          required
+                          value={institutionalInvestorData.workPhone}
+                          onChange={(e) => handleInstitutionalInvestorChange('workPhone', e.target.value)}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="personalPhone" className="block text-sm font-medium text-gray-700">
+                          Personal Phone Number <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          id="personalPhone"
+                          name="personalPhone"
+                          type="tel"
+                          required
+                          value={institutionalInvestorData.personalPhone}
+                          onChange={(e) => handleInstitutionalInvestorChange('personalPhone', e.target.value)}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="institutionName" className="block text-sm font-medium text-gray-700">
+                        Institution Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="institutionName"
+                        name="institutionName"
+                        type="text"
+                        required
+                        value={institutionalInvestorData.institutionName}
+                        onChange={(e) => handleInstitutionalInvestorChange('institutionName', e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="institutionalEmail" className="block text-sm font-medium text-gray-700">
+                        Institutional Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="institutionalEmail"
+                        name="institutionalEmail"
+                        type="email"
+                        required
+                        value={institutionalInvestorData.institutionalEmail}
+                        onChange={(e) => handleInstitutionalInvestorChange('institutionalEmail', e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Business Card Attachment
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Upload your business card (JPEG, PNG, or PDF). Max file size: 5MB
+                      </p>
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        onChange={handleBusinessCardChange}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-md file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-blue-50 file:text-blue-700
+                          hover:file:bg-blue-100"
+                      />
+                      {institutionalInvestorData.businessCard && (
+                        <p className="mt-1 text-sm text-gray-600">
+                          Selected: {institutionalInvestorData.businessCard.name}
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
@@ -394,7 +752,7 @@ const InvestorAuth: React.FC = () => {
             <div>
               <button
                 type="button"
-                onClick={() => navigate('/auth/forgot-password')}
+                onClick={() => navigate('/auth/forgot-password?type=investor')}
                 className="text-sm text-primary-blue hover:text-primary-blue-dark"
               >
                 Forgot your password?

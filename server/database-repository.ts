@@ -744,4 +744,72 @@ export class DatabaseRepository {
     }
     return await bcrypt.hash(password, 12);
   }
+
+  // ==================== PASSWORD RESET ====================
+  
+  async updateCommonInvestorPassword(id: string, newPassword: string): Promise<boolean> {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating common investor password');
+      return true;
+    }
+    
+    try {
+      const hashedPassword = await this.hashPassword(newPassword);
+      await db.update(schema.commonInvestors)
+        .set({ 
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.commonInvestors.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error updating common investor password:', error);
+      return false;
+    }
+  }
+  
+  async updateInstitutionalInvestorPassword(id: string, newPassword: string): Promise<boolean> {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating institutional investor password');
+      return true;
+    }
+    
+    try {
+      const hashedPassword = await this.hashPassword(newPassword);
+      await db.update(schema.institutionalInvestors)
+        .set({ 
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.institutionalInvestors.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error updating institutional investor password:', error);
+      return false;
+    }
+  }
+  
+  async updatePartnerPassword(id: string, newPassword: string): Promise<boolean> {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating partner password');
+      return true;
+    }
+    
+    try {
+      const hashedPassword = await this.hashPassword(newPassword);
+      await db.update(schema.partners)
+        .set({ 
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.partners.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error updating partner password:', error);
+      return false;
+    }
+  }
 }

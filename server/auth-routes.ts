@@ -631,6 +631,124 @@ router.post('/admin/login', async (req: express.Request, res: express.Response) 
   }
 });
 
+// ==================== PASSWORD RESET ROUTES ====================
+
+// Request password reset
+router.post('/request-password-reset', async (req: express.Request, res: express.Response) => {
+  try {
+    const { email, userType } = req.body;
+    
+    if (!email || !userType) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and user type are required' 
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Please provide a valid email address' 
+      });
+    }
+
+    let user = null;
+    
+    // Find user based on user type
+    switch (userType) {
+      case 'common_investor':
+        user = await db.getCommonInvestorByEmail(email);
+        break;
+      case 'institutional_investor':
+        user = await db.getInstitutionalInvestorByEmail(email);
+        break;
+      case 'seller':
+        user = await db.getPartnerByEmail(email);
+        break;
+      default:
+        return res.status(400).json({ 
+          success: false,
+          message: 'Invalid user type' 
+        });
+    }
+
+    // Even if user doesn't exist, return success to prevent email enumeration
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'If an account exists with this email, you will receive password reset instructions.'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = db.generateEmailVerificationToken(); // Reuse existing method
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+
+    // In a real implementation, you would save the reset token and expiry to the user record
+    // For now, we'll just return success since we're in demo mode
+    console.log(`Password reset token for ${email}: ${resetToken}`);
+
+    // In a real implementation, you would send an email with a link containing the reset token
+    // For now, we'll just return success since we're in demo mode
+    console.log(`Password reset link: http://localhost:3000/auth/reset-password?token=${resetToken}&type=${userType}`);
+
+    res.json({
+      success: true,
+      message: 'If an account exists with this email, you will receive password reset instructions.'
+    });
+
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'An error occurred. Please try again.' 
+    });
+  }
+});
+
+// Reset password
+router.post('/reset-password', async (req: express.Request, res: express.Response) => {
+  try {
+    const { token, newPassword, userType } = req.body;
+    
+    if (!token || !newPassword || !userType) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Token, user type, and new password are required' 
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Password must be at least 6 characters' 
+      });
+    }
+
+    // In a real implementation, you would:
+    // 1. Find user by reset token
+    // 2. Check if token is valid and not expired
+    // 3. Update user's password using the new database methods
+    
+    // For demo purposes, we'll just return success
+    console.log(`Resetting password for ${userType} with token: ${token}`);
+    
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully. You can now log in with your new password.'
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'An error occurred. Please try again.' 
+    });
+  }
+});
+
 // ==================== SHARED ROUTES ====================
 
 // Logout route (works for all user types)

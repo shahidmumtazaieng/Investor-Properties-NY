@@ -64,6 +64,24 @@ const SellerAuth: React.FC = () => {
     setError('');
 
     // Validation
+    if (!formData.firstName.trim()) {
+      setError('First name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.lastName.trim()) {
+      setError('Last name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      setError('Phone number is required');
+      setLoading(false);
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
@@ -145,6 +163,13 @@ const SellerAuth: React.FC = () => {
           </p>
         </div>
 
+        {/* Legend for required fields */}
+        {authMode === 'signup' && (
+          <div className="text-sm text-gray-500 flex items-center justify-end">
+            <span className="text-red-500 mr-1">*</span> Required field
+          </div>
+        )}
+
         {/* Benefits Section for Sign Up */}
         {authMode === 'signup' && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -176,7 +201,7 @@ const SellerAuth: React.FC = () => {
             {/* Username */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
+                Username <span className="text-red-500">*</span>
               </label>
               <input
                 id="username"
@@ -192,7 +217,7 @@ const SellerAuth: React.FC = () => {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Password <span className="text-red-500">*</span>
               </label>
               <input
                 id="password"
@@ -211,7 +236,7 @@ const SellerAuth: React.FC = () => {
                 {/* Confirm Password */}
                 <div>
                   <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                    Confirm Password
+                    Confirm Password <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="confirmPassword"
@@ -227,7 +252,7 @@ const SellerAuth: React.FC = () => {
                 {/* Email */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email Address
+                    Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="email"
@@ -244,7 +269,7 @@ const SellerAuth: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                      First Name
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       id="firstName"
@@ -258,7 +283,7 @@ const SellerAuth: React.FC = () => {
                   </div>
                   <div>
                     <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                      Last Name
+                      Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       id="lastName"
@@ -290,12 +315,13 @@ const SellerAuth: React.FC = () => {
                 {/* Phone */}
                 <div>
                   <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                    Phone Number
+                    Phone Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="phone"
                     name="phone"
                     type="tel"
+                    required
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -342,7 +368,7 @@ const SellerAuth: React.FC = () => {
             <div>
               <button
                 type="button"
-                onClick={() => navigate('/auth/forgot-password')}
+                onClick={() => navigate('/auth/forgot-password?type=seller')}
                 className="text-sm text-primary-blue hover:text-primary-blue-dark"
               >
                 Forgot your password?

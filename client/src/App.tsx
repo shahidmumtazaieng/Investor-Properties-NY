@@ -12,6 +12,8 @@ import ContactPage from './components/ContactPage';
 import FaqPage from './components/FaqPage';
 import InvestorAuth from './components/auth/InvestorAuth';
 import SellerAuth from './components/auth/SellerAuth';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 import ChatBot from './components/ChatBot';
 // Admin components
 import AdminAuth from './components/admin/AdminAuth';
@@ -87,6 +89,8 @@ const AppContent: React.FC = () => {
             {/* Authentication Routes */}
             <Route path="/auth/investor" element={user ? <Navigate to="/dashboard" replace /> : <InvestorAuth />} />
             <Route path="/auth/seller" element={user ? <Navigate to="/dashboard" replace /> : <SellerAuth />} />
+            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminAuth />} />
