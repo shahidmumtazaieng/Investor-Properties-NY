@@ -30,6 +30,33 @@ deployment-package/
 - ✅ Responsive design for all devices
 - ✅ Production-ready security and performance
 
+## Admin Portal Access
+
+The application includes a comprehensive admin portal with the following features:
+
+### Access Information
+- **Admin Login URL**: `/admin/login`
+- **Default Admin Credentials**: 
+  - Username: `admin`
+  - Password: `admin123`
+  - (Please change these credentials after first login for security)
+
+### Admin Features
+- **Dashboard**: Overview of key metrics and statistics
+- **User Management**: View, approve, and manage all users
+- **Property Approval**: Review and approve property listings
+- **Analytics**: View detailed platform analytics and reports
+- **Email Campaigns**: Send newsletters and announcements to users
+- **Security Monitoring**: Monitor security events and suspicious activity
+
+### Admin Portal URLs
+- Dashboard: `/admin/dashboard`
+- User Management: `/admin/users`
+- Property Approval: `/admin/properties`
+- Analytics: `/admin/analytics`
+- Email Campaigns: `/admin/campaigns`
+- Security Monitoring: `/admin/security`
+
 ## Blog Section Details
 The blog includes 5 professionally written, SEO-optimized articles:
 

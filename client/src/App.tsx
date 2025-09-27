@@ -11,41 +11,22 @@ import BlogPage from './components/BlogPage';
 import ContactPage from './components/ContactPage';
 import FaqPage from './components/FaqPage';
 import InvestorAuth from './components/auth/InvestorAuth';
-// import EnhancedInvestorAuth from './components/auth/EnhancedInvestorAuth';
 import SellerAuth from './components/auth/SellerAuth';
 import ChatBot from './components/ChatBot';
-// Missing components commented out:
-// import CommonInvestorDashboard from './components/dashboard/CommonInvestorDashboard';
-// import InstitutionalDashboard from './components/dashboard/InstitutionalDashboard';
-// import SellerDashboard from './components/dashboard/SellerDashboard';
-// import EnhancedSellerPortal from './components/seller/EnhancedSellerPortal';
-// import ProfileSettings from './components/dashboard/ProfileSettings';
-// import SubscriptionManagement from './components/dashboard/SubscriptionManagement';
-// import EnhancedForeclosureSubscription from './components/subscription/EnhancedForeclosureSubscription';
-// import SubscriptionAnalytics from './components/subscription/SubscriptionAnalytics';
-// import OfferManagement from './components/offers/OfferManagement';
-// import SellerOfferManagement from './components/offers/SellerOfferManagement';
-// import AddPropertyForm from './components/seller/AddPropertyForm';
-// import PropertyManagement from './components/seller/PropertyManagement';
-// import AdminDashboard from './components/admin/AdminDashboard';
-// import UserManagement from './components/admin/UserManagement';
-// import PropertyApproval from './components/admin/PropertyApproval';
-// import Analytics from './components/admin/Analytics';
-// import EmailCampaigns from './components/admin/EmailCampaigns';
-// import SecurityMonitoring from './components/admin/SecurityMonitoring';
+// Admin components
+import AdminAuth from './components/admin/AdminAuth';
+import AdminDashboard from './components/admin/AdminDashboard';
+import UserManagement from './components/admin/UserManagement';
+import PropertyApproval from './components/admin/PropertyApproval';
+import PropertyManagement from './components/admin/PropertyManagement';
+import Analytics from './components/admin/Analytics';
+import EmailCampaigns from './components/admin/EmailCampaigns';
+import SecurityMonitoring from './components/admin/SecurityMonitoring';
+import ForeclosureManagement from './components/admin/ForeclosureManagement';
 
 const AppContent: React.FC = () => {
   const { user, loading, logout } = useAuth();
   const [isChatBotOpen, setIsChatBotOpen] = useState(false);
-
-  // Removed the loading check that was preventing the app from rendering
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center">
-  //       <div className="text-xl">Loading...</div>
-  //     </div>
-  //   );
-  // }
 
   // Create a compatible user object for Header component
   const headerUser = user ? {
@@ -88,6 +69,17 @@ const AppContent: React.FC = () => {
             {/* Authentication Routes */}
             <Route path="/auth/investor" element={user ? <Navigate to="/dashboard" replace /> : <InvestorAuth />} />
             <Route path="/auth/seller" element={user ? <Navigate to="/dashboard" replace /> : <SellerAuth />} />
+
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<AdminAuth />} />
+            <Route path="/admin/dashboard" element={user?.userType === 'admin' ? <AdminDashboard /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/users" element={user?.userType === 'admin' ? <UserManagement /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/properties" element={user?.userType === 'admin' ? <PropertyManagement /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/properties/approval" element={user?.userType === 'admin' ? <PropertyApproval /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/analytics" element={user?.userType === 'admin' ? <Analytics /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/campaigns" element={user?.userType === 'admin' ? <EmailCampaigns /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/security" element={user?.userType === 'admin' ? <SecurityMonitoring /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/foreclosures" element={user?.userType === 'admin' ? <ForeclosureManagement /> : <Navigate to="/admin/login" replace />} />
 
             {/* Protected Routes - Simplified Dashboard */}
             {user ? (

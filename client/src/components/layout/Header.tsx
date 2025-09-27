@@ -61,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
       case 'seller':
         return '/dashboard/seller';
       case 'admin':
-        return '/dashboard/admin';
+        return '/admin/dashboard';
       default:
         return '/';
     }

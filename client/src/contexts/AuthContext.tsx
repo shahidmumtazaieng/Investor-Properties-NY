@@ -90,9 +90,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      const endpoint = loginData.userType === 'institutional_investor' 
-        ? '/api/auth/institutional/login'
-        : '/api/auth/investors/login';
+      let endpoint = '';
+      if (loginData.userType === 'institutional_investor') {
+        endpoint = '/api/auth/institutional/login';
+      } else if (loginData.userType === 'admin') {
+        endpoint = '/api/auth/admin/login';
+      } else {
+        endpoint = '/api/auth/investors/login';
+      }
       
       const response = await fetch(endpoint, {
         method: 'POST',

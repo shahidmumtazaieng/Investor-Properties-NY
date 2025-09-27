@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import path from "path";
 import authRoutes from "./auth-routes.ts";
+import adminRoutes from "./admin-routes.ts";
 import { DatabaseRepository } from "./database-repository.ts";
 
 // Load environment variables
@@ -81,6 +82,9 @@ app.get('/api/health', (req, res) => {
 
 // Authentication routes
 app.use('/api/auth', authRoutes);
+
+// Admin routes
+app.use('/api/admin', adminRoutes);
 
 // Properties endpoint (updated to use database)
 app.get('/api/public/properties', async (req, res) => {
