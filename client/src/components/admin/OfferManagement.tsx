@@ -45,7 +45,7 @@ const OfferManagement: React.FC = () => {
       });
       const data = await response.json();
       
-      if (data.offers) {
+      if (data.success && data.offers) {
         setOffers(data.offers);
       }
     } catch (error) {
@@ -95,7 +95,7 @@ const OfferManagement: React.FC = () => {
           offer.id === offerId ? { ...offer, status, updatedAt: new Date().toISOString() } : offer
         ));
       } else {
-        alert('Failed to update offer status');
+        alert('Failed to update offer status: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error updating offer status:', error);
@@ -118,6 +118,21 @@ const OfferManagement: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+      case 'accepted':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Accepted</span>;
+      case 'rejected':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>;
+      case 'countered':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Countered</span>;
+      default:
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Unknown</span>;
+    }
   };
 
   if (loading) {
@@ -240,14 +255,7 @@ const OfferManagement: React.FC = () => {
                         {formatDate(offer.submittedAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          offer.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          offer.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                          offer.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {offer.status.charAt(0).toUpperCase() + offer.status.slice(1)}
-                        </span>
+                        {getStatusBadge(offer.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">

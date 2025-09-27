@@ -44,7 +44,7 @@ const ForeclosureBidManagement: React.FC = () => {
       });
       const data = await response.json();
       
-      if (data.bids) {
+      if (data.success && data.bids) {
         setBids(data.bids);
       }
     } catch (error) {
@@ -94,7 +94,7 @@ const ForeclosureBidManagement: React.FC = () => {
           bid.id === bidId ? { ...bid, status, updatedAt: new Date().toISOString() } : bid
         ));
       } else {
-        alert('Failed to update bid status');
+        alert('Failed to update bid status: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error updating bid status:', error);
@@ -117,6 +117,23 @@ const ForeclosureBidManagement: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+      case 'reviewed':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Reviewed</span>;
+      case 'contacted':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Contacted</span>;
+      case 'won':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Won</span>;
+      case 'lost':
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Lost</span>;
+      default:
+        return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Unknown</span>;
+    }
   };
 
   if (loading) {
@@ -240,15 +257,7 @@ const ForeclosureBidManagement: React.FC = () => {
                         {formatDate(bid.submittedAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          bid.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          bid.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
-                          bid.status === 'contacted' ? 'bg-purple-100 text-purple-800' :
-                          bid.status === 'won' ? 'bg-green-100 text-green-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
-                        </span>
+                        {getStatusBadge(bid.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">

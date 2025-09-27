@@ -23,6 +23,9 @@ import Analytics from './components/admin/Analytics';
 import EmailCampaigns from './components/admin/EmailCampaigns';
 import SecurityMonitoring from './components/admin/SecurityMonitoring';
 import ForeclosureManagement from './components/admin/ForeclosureManagement';
+import OfferManagement from './components/admin/OfferManagement';
+import ForeclosureBidManagement from './components/admin/ForeclosureBidManagement';
+import ForeclosureSubscriptionManagement from './components/admin/ForeclosureSubscriptionManagement';
 // Seller components
 import SellerDashboard from './components/seller/SellerDashboard';
 import SellerProperties from './components/seller/SellerProperties';
@@ -94,6 +97,9 @@ const AppContent: React.FC = () => {
             <Route path="/admin/campaigns" element={user?.userType === 'admin' ? <EmailCampaigns /> : <Navigate to="/admin/login" replace />} />
             <Route path="/admin/security" element={user?.userType === 'admin' ? <SecurityMonitoring /> : <Navigate to="/admin/login" replace />} />
             <Route path="/admin/foreclosures" element={user?.userType === 'admin' ? <ForeclosureManagement /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/offers" element={user?.userType === 'admin' ? <OfferManagement /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/foreclosure-bids" element={user?.userType === 'admin' ? <ForeclosureBidManagement /> : <Navigate to="/admin/login" replace />} />
+            <Route path="/admin/subscription-requests" element={user?.userType === 'admin' ? <ForeclosureSubscriptionManagement /> : <Navigate to="/admin/login" replace />} />
 
             {/* Seller Routes */}
             <Route path="/seller/dashboard" element={user?.userType === 'seller' ? <SellerDashboard /> : <Navigate to="/auth/seller" replace />} />

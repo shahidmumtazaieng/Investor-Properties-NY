@@ -40,70 +40,17 @@ const ForeclosureSubscriptionManagement: React.FC = () => {
 
   const fetchSubscriptionRequests = async () => {
     try {
-      // Simulate API call
-      setTimeout(() => {
-        const sampleRequests: SubscriptionRequest[] = [
-          {
-            id: '1',
-            investorId: 'inv-001',
-            investorName: 'John Smith',
-            investorEmail: 'john.smith@example.com',
-            investorPhone: '(555) 123-4567',
-            planType: 'monthly',
-            counties: ['Queens', 'Brooklyn'],
-            investmentExperience: '3-5 Years Experience',
-            investmentBudget: '$250K - $500K',
-            status: 'pending',
-            submittedAt: '2024-10-15T10:30:00Z'
-          },
-          {
-            id: '2',
-            investorId: 'inv-002',
-            investorName: 'Sarah Johnson',
-            investorEmail: 'sarah.j@example.com',
-            investorPhone: '(555) 987-6543',
-            planType: 'yearly',
-            counties: ['Manhattan', 'Bronx', 'Staten Island'],
-            investmentExperience: '5+ Years Experience',
-            investmentBudget: '$500K - $1M',
-            status: 'approved',
-            submittedAt: '2024-10-10T14:22:00Z',
-            approvedAt: '2024-10-11T09:15:00Z',
-            expiryDate: '2025-10-11T09:15:00Z'
-          },
-          {
-            id: '3',
-            investorId: 'inv-003',
-            investorName: 'Robert Davis',
-            investorEmail: 'robert.davis@example.com',
-            investorPhone: '(555) 456-7890',
-            planType: 'monthly',
-            counties: ['Nassau', 'Suffolk'],
-            investmentExperience: '1-2 Years Experience',
-            investmentBudget: '$100K - $250K',
-            status: 'rejected',
-            submittedAt: '2024-10-05T16:45:00Z',
-            rejectionReason: 'Insufficient investment experience for requested counties'
-          },
-          {
-            id: '4',
-            investorId: 'inv-004',
-            investorName: 'Emily Wilson',
-            investorEmail: 'emily.wilson@example.com',
-            investorPhone: '(555) 444-3333',
-            planType: 'yearly',
-            counties: ['Westchester', 'Queens'],
-            investmentExperience: 'First Time Bidder',
-            investmentBudget: 'Under $100K',
-            status: 'pending',
-            submittedAt: '2024-10-18T11:20:00Z'
-          }
-        ];
-        setRequests(sampleRequests);
-        setLoading(false);
-      }, 1000);
+      const response = await fetch('/api/admin/subscription-requests', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success && data.requests) {
+        setRequests(data.requests);
+      }
     } catch (error) {
       console.error('Error fetching subscription requests:', error);
+    } finally {
       setLoading(false);
     }
   };
@@ -139,55 +86,132 @@ const ForeclosureSubscriptionManagement: React.FC = () => {
     setShowRejectModal(true);
   };
 
-  const confirmApprove = () => {
+  const confirmApprove = async () => {
     if (selectedRequest) {
-      setRequests(prev => prev.map(req => 
-        req.id === selectedRequest.id 
-          ? { 
-              ...req, 
-              status: 'approved',
-              approvedAt: new Date().toISOString(),
-              expiryDate: new Date(Date.now() + (selectedRequest.planType === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
-            } 
-          : req
-      ));
-      setShowApproveModal(false);
-      setSelectedRequest(null);
+      try {
+        const response = await fetch(`/api/admin/subscription-requests/${selectedRequest.id}/approve`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setRequests(prev => prev.map(req => 
+            req.id === selectedRequest.id 
+              ? { 
+                  ...req, 
+                  status: 'approved',
+                  approvedAt: new Date().toISOString(),
+                  expiryDate: new Date(Date.now() + (selectedRequest.planType === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
+                } 
+              : req
+          ));
+          setShowApproveModal(false);
+          setSelectedRequest(null);
+        } else {
+          alert('Failed to approve subscription request: ' + (data.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error approving subscription request:', error);
+        alert('Network error. Please try again.');
+      }
     }
   };
 
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (selectedRequest && rejectionReason) {
-      setRequests(prev => prev.map(req => 
-        req.id === selectedRequest.id 
-          ? { ...req, status: 'rejected', rejectionReason } 
-          : req
-      ));
-      setShowRejectModal(false);
-      setSelectedRequest(null);
-      setRejectionReason('');
+      try {
+        const response = await fetch(`/api/admin/subscription-requests/${selectedRequest.id}/reject`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ reason: rejectionReason }),
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setRequests(prev => prev.map(req => 
+            req.id === selectedRequest.id 
+              ? { ...req, status: 'rejected', rejectionReason } 
+              : req
+          ));
+          setShowRejectModal(false);
+          setSelectedRequest(null);
+          setRejectionReason('');
+        } else {
+          alert('Failed to reject subscription request: ' + (data.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error rejecting subscription request:', error);
+        alert('Network error. Please try again.');
+      }
     }
   };
 
-  const handleRenewSubscription = (requestId: string) => {
-    setRequests(prev => prev.map(req => 
-      req.id === requestId 
-        ? { 
-            ...req, 
-            status: 'approved',
-            approvedAt: new Date().toISOString(),
-            expiryDate: new Date(Date.now() + (req.planType === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
-          } 
-        : req
-    ));
+  const handleRenewSubscription = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/admin/subscriptions/${requestId}/renew`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setRequests(prev => prev.map(req => 
+          req.id === requestId 
+            ? { 
+                ...req, 
+                status: 'approved',
+                approvedAt: new Date().toISOString(),
+                expiryDate: new Date(Date.now() + (req.planType === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
+              } 
+            : req
+        ));
+      } else {
+        alert('Failed to renew subscription: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error renewing subscription:', error);
+      alert('Network error. Please try again.');
+    }
   };
 
-  const handleCancelSubscription = (requestId: string) => {
-    setRequests(prev => prev.map(req => 
-      req.id === requestId 
-        ? { ...req, status: 'cancelled' } 
-        : req
-    ));
+  const handleCancelSubscription = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/admin/subscriptions/${requestId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setRequests(prev => prev.map(req => 
+          req.id === requestId 
+            ? { ...req, status: 'cancelled' } 
+            : req
+        ));
+      } else {
+        alert('Failed to cancel subscription: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      alert('Network error. Please try again.');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -433,6 +457,123 @@ const ForeclosureSubscriptionManagement: React.FC = () => {
           )}
         </div>
       </Card>
+
+      {/* Approve Modal */}
+      {showApproveModal && selectedRequest && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Approve Subscription</h3>
+                <button
+                  onClick={() => {
+                    setShowApproveModal(false);
+                    setSelectedRequest(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to approve the subscription request for{' '}
+                  <span className="font-medium">{selectedRequest.investorName}</span>?
+                </p>
+                <div className="mt-4 bg-blue-50 p-4 rounded-md">
+                  <h4 className="text-sm font-medium text-blue-800">Subscription Details</h4>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>Plan: {selectedRequest.planType.charAt(0).toUpperCase() + selectedRequest.planType.slice(1)}</p>
+                    <p>Counties: {selectedRequest.counties.join(', ')}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="items-center px-4 py-3">
+                <Button
+                  variant="primary"
+                  onClick={confirmApprove}
+                  className="w-full"
+                >
+                  Confirm Approval
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowApproveModal(false);
+                    setSelectedRequest(null);
+                  }}
+                  className="w-full mt-2"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && selectedRequest && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Reject Subscription</h3>
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setSelectedRequest(null);
+                    setRejectionReason('');
+                  }}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500">
+                  Please provide a reason for rejecting the subscription request for{' '}
+                  <span className="font-medium">{selectedRequest.investorName}</span>:
+                </p>
+                <div className="mt-4">
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={4}
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
+                    placeholder="Enter rejection reason..."
+                  />
+                </div>
+              </div>
+              <div className="items-center px-4 py-3">
+                <Button
+                  variant="outline"
+                  onClick={confirmReject}
+                  disabled={!rejectionReason.trim()}
+                  className="w-full"
+                >
+                  Confirm Rejection
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setSelectedRequest(null);
+                    setRejectionReason('');
+                  }}
+                  className="w-full mt-2"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

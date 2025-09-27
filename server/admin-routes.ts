@@ -859,4 +859,302 @@ router.post('/foreclosures/:id/notify', authenticateAdmin, async (req: AdminRequ
   }
 });
 
+// Get all offers
+router.get('/offers', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    // Mock offer data
+    const offers = [
+      {
+        id: 'o1',
+        propertyId: 'p1',
+        propertyAddress: '123 Brooklyn Ave, Brooklyn, NY',
+        investorId: 'inv1',
+        investorName: 'John Smith',
+        investorType: 'common_investor',
+        investorEmail: 'john.smith@example.com',
+        investorPhone: '(555) 123-4567',
+        offerAmount: 750000,
+        earnestMoney: 15000,
+        closingDate: '2024-03-15',
+        financingType: 'Cash',
+        contingencies: ['Inspection', 'Appraisal'],
+        additionalTerms: 'Flexible on closing date',
+        message: 'Very interested in this property. Would love to schedule a viewing.',
+        status: 'pending',
+        submittedAt: '2024-02-10T14:30:00Z',
+        updatedAt: '2024-02-10T14:30:00Z'
+      },
+      {
+        id: 'o2',
+        propertyId: 'p2',
+        propertyAddress: '456 Queens Blvd, Queens, NY',
+        investorId: 'inv2',
+        investorName: 'Sarah Johnson',
+        investorType: 'institutional_investor',
+        investorEmail: 'sarah.j@example.com',
+        investorPhone: '(555) 987-6543',
+        offerAmount: 650000,
+        earnestMoney: 13000,
+        closingDate: '2024-03-20',
+        financingType: 'Conventional Loan',
+        contingencies: ['Financing', 'Appraisal'],
+        additionalTerms: 'Need 48 hours for response',
+        message: 'Submitting offer on behalf of our investment fund.',
+        status: 'accepted',
+        submittedAt: '2024-02-08T11:15:00Z',
+        updatedAt: '2024-02-09T09:45:00Z'
+      }
+    ];
+    
+    res.json({ success: true, offers });
+  } catch (error) {
+    console.error('Error fetching offers:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch offers' });
+  }
+});
+
+// Update offer status
+router.put('/offers/:id/status', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    // Validate status
+    const validStatuses = ['accepted', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid status. Must be accepted or rejected.' 
+      });
+    }
+    
+    // In a real implementation, this would update the database
+    // For now, we'll return a mock response
+    res.json({ 
+      success: true, 
+      message: `Offer ${id} ${status} successfully`,
+      offerId: id,
+      status
+    });
+  } catch (error) {
+    console.error('Error updating offer status:', error);
+    res.status(500).json({ success: false, message: 'Failed to update offer status' });
+  }
+});
+
+// Get all foreclosure bids
+router.get('/foreclosure-bids', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    // Mock foreclosure bid data
+    const bids = [
+      {
+        id: 'b1',
+        foreclosureId: 'f1',
+        foreclosureAddress: '123 Main St, Queens, NY',
+        investorId: 'inv1',
+        investorName: 'John Smith',
+        investorType: 'common_investor',
+        investorEmail: 'john.smith@example.com',
+        investorPhone: '(555) 123-4567',
+        bidAmount: 450000,
+        maxBidAmount: 475000,
+        investmentExperience: '3-5 Years Experience',
+        preferredContactMethod: 'Email',
+        timeframe: '30 days',
+        additionalRequirements: 'Need property inspection report',
+        status: 'pending',
+        submittedAt: '2024-02-12T10:30:00Z',
+        updatedAt: '2024-02-12T10:30:00Z'
+      },
+      {
+        id: 'b2',
+        foreclosureId: 'f2',
+        foreclosureAddress: '456 Oak Ave, Brooklyn, NY',
+        investorId: 'inv3',
+        investorName: 'Robert Davis',
+        investorType: 'institutional_investor',
+        investorEmail: 'robert.davis@example.com',
+        investorPhone: '(555) 456-7890',
+        bidAmount: 380000,
+        maxBidAmount: 400000,
+        investmentExperience: '5+ Years Experience',
+        preferredContactMethod: 'Phone',
+        timeframe: 'Immediate',
+        additionalRequirements: 'None',
+        status: 'reviewed',
+        submittedAt: '2024-02-11T14:20:00Z',
+        updatedAt: '2024-02-13T09:15:00Z'
+      }
+    ];
+    
+    res.json({ success: true, bids });
+  } catch (error) {
+    console.error('Error fetching foreclosure bids:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch foreclosure bids' });
+  }
+});
+
+// Update foreclosure bid status
+router.put('/foreclosure-bids/:id/status', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    // Validate status
+    const validStatuses = ['reviewed', 'contacted', 'won', 'lost'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid status. Must be reviewed, contacted, won, or lost.' 
+      });
+    }
+    
+    // In a real implementation, this would update the database
+    // For now, we'll return a mock response
+    res.json({ 
+      success: true, 
+      message: `Foreclosure bid ${id} marked as ${status} successfully`,
+      bidId: id,
+      status
+    });
+  } catch (error) {
+    console.error('Error updating foreclosure bid status:', error);
+    res.status(500).json({ success: false, message: 'Failed to update foreclosure bid status' });
+  }
+});
+
+// Get all subscription requests
+router.get('/subscription-requests', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    // Mock subscription request data
+    const requests = [
+      {
+        id: 'sr1',
+        investorId: 'inv1',
+        investorName: 'John Smith',
+        investorEmail: 'john.smith@example.com',
+        investorPhone: '(555) 123-4567',
+        planType: 'monthly',
+        counties: ['Queens', 'Brooklyn'],
+        investmentExperience: '3-5 Years Experience',
+        investmentBudget: '$250K - $500K',
+        status: 'pending',
+        submittedAt: '2024-02-15T10:30:00Z'
+      },
+      {
+        id: 'sr2',
+        investorId: 'inv2',
+        investorName: 'Sarah Johnson',
+        investorEmail: 'sarah.j@example.com',
+        investorPhone: '(555) 987-6543',
+        planType: 'yearly',
+        counties: ['Manhattan', 'Bronx', 'Staten Island'],
+        investmentExperience: '5+ Years Experience',
+        investmentBudget: '$500K - $1M',
+        status: 'approved',
+        submittedAt: '2024-02-10T14:22:00Z',
+        approvedAt: '2024-02-11T09:15:00Z',
+        expiryDate: '2025-02-11T09:15:00Z'
+      },
+      {
+        id: 'sr3',
+        investorId: 'inv3',
+        investorName: 'Robert Davis',
+        investorEmail: 'robert.davis@example.com',
+        investorPhone: '(555) 456-7890',
+        planType: 'monthly',
+        counties: ['Nassau', 'Suffolk'],
+        investmentExperience: '1-2 Years Experience',
+        investmentBudget: '$100K - $250K',
+        status: 'rejected',
+        submittedAt: '2024-02-05T16:45:00Z',
+        rejectionReason: 'Insufficient investment experience for requested counties'
+      }
+    ];
+    
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error('Error fetching subscription requests:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch subscription requests' });
+  }
+});
+
+// Approve subscription request
+router.post('/subscription-requests/:id/approve', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    
+    // In a real implementation, this would update the database
+    // For now, we'll return a mock response
+    res.json({ 
+      success: true, 
+      message: `Subscription request ${id} approved successfully`,
+      requestId: id,
+      status: 'approved'
+    });
+  } catch (error) {
+    console.error('Error approving subscription request:', error);
+    res.status(500).json({ success: false, message: 'Failed to approve subscription request' });
+  }
+});
+
+// Reject subscription request
+router.post('/subscription-requests/:id/reject', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // In a real implementation, this would update the database
+    // For now, we'll return a mock response
+    res.json({ 
+      success: true, 
+      message: `Subscription request ${id} rejected successfully`,
+      requestId: id,
+      status: 'rejected',
+      rejectionReason: reason
+    });
+  } catch (error) {
+    console.error('Error rejecting subscription request:', error);
+    res.status(500).json({ success: false, message: 'Failed to reject subscription request' });
+  }
+});
+
+// Renew subscription
+router.post('/subscriptions/:id/renew', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    
+    // In a real implementation, this would update the database
+    // For now, we'll return a mock response
+    res.json({ 
+      success: true, 
+      message: `Subscription ${id} renewed successfully`,
+      subscriptionId: id,
+      status: 'approved'
+    });
+  } catch (error) {
+    console.error('Error renewing subscription:', error);
+    res.status(500).json({ success: false, message: 'Failed to renew subscription' });
+  }
+});
+
+// Cancel subscription
+router.post('/subscriptions/:id/cancel', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    
+    // In a real implementation, this would update the database
+    // For now, we'll return a mock response
+    res.json({ 
+      success: true, 
+      message: `Subscription ${id} cancelled successfully`,
+      subscriptionId: id,
+      status: 'cancelled'
+    });
+  } catch (error) {
+    console.error('Error cancelling subscription:', error);
+    res.status(500).json({ success: false, message: 'Failed to cancel subscription' });
+  }
+});
+
 export default router;
