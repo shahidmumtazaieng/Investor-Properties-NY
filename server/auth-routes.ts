@@ -7,7 +7,7 @@ const db = new DatabaseRepository();
 // Middleware to check session
 interface AuthenticatedRequest extends express.Request {
   user?: any;
-  userType?: 'common_investor' | 'institutional_investor' | 'seller';
+  userType?: 'common_investor' | 'institutional_investor' | 'seller' | 'admin';
 }
 
 // Authentication middleware
@@ -22,7 +22,7 @@ export const authenticateUser = async (req: AuthenticatedRequest, res: express.R
     // Try different session types
     let session = await db.getCommonInvestorSession(sessionToken);
     let user = null;
-    let userType: 'common_investor' | 'institutional_investor' | 'seller' = 'common_investor';
+    let userType: 'common_investor' | 'institutional_investor' | 'seller' | 'admin' = 'common_investor';
 
     if (session && session.expiresAt > new Date()) {
       user = await db.getCommonInvestorById(session.investorId);
@@ -42,11 +42,25 @@ export const authenticateUser = async (req: AuthenticatedRequest, res: express.R
           user = partner;
           userType = 'seller';
         }
+      } else {
+        // Try admin session
+        const adminSession = await db.getAdminSession(sessionToken);
+        if (adminSession && adminSession.expiresAt > new Date()) {
+          user = await db.getAdminUserById(adminSession.adminId);
+          if (user) {
+            userType = 'admin';
+          }
+        }
       }
     }
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid or expired session' });
+    }
+
+    // Check if user is active (except for admin users which may not have this property in mock data)
+    if (userType !== 'admin' && 'isActive' in user && !user.isActive) {
+      return res.status(401).json({ message: 'Account is not active' });
     }
 
     req.user = user;
@@ -586,41 +600,49 @@ router.post('/admin/login', async (req: express.Request, res: express.Response) 
       });
     }
 
-    // For demo purposes, we'll check for a specific admin user
-    // In a real application, this would check against admin users in the database
-    if (username === 'admin' && password === 'admin123') {
-      // Create session
-      const sessionToken = db.generateSessionToken();
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-      
-      // In a real app, we would save this to an admin sessions table
-      // For now, we'll just set the cookie and return success
-      
-      // Set cookie
-      res.cookie('session_token', sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-      });
-
-      res.json({
-        success: true,
-        message: 'Admin login successful',
-        user: {
-          id: 'admin-1',
-          username: 'admin',
-          firstName: 'Admin',
-          lastName: 'User',
-          userType: 'admin'
-        }
-      });
-    } else {
+    const admin = await db.authenticateAdmin(username, password);
+    
+    if (!admin) {
       return res.status(401).json({ 
         success: false,
         message: 'Invalid admin credentials' 
       });
     }
+
+    // Check if admin is active (safely handle mock data)
+    // @ts-ignore
+    if ('isActive' in admin && !admin.isActive) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Account is not active' 
+      });
+    }
+
+    // Create session
+    const sessionToken = db.generateSessionToken();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    
+    await db.createAdminSession(admin.id, sessionToken, expiresAt);
+
+    // Set cookie
+    res.cookie('session_token', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
+    res.json({
+      success: true,
+      message: 'Admin login successful',
+      user: {
+        id: admin.id,
+        username: admin.username,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        userType: 'admin'
+      }
+    });
 
   } catch (error) {
     console.error('Admin login error:', error);
@@ -683,15 +705,11 @@ router.post('/request-password-reset', async (req: express.Request, res: express
     }
 
     // Generate reset token
-    const resetToken = db.generateEmailVerificationToken(); // Reuse existing method
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
-
-    // In a real implementation, you would save the reset token and expiry to the user record
-    // For now, we'll just return success since we're in demo mode
-    console.log(`Password reset token for ${email}: ${resetToken}`);
-
+    const resetToken = await db.createPasswordResetToken(user.id, userType);
+    
     // In a real implementation, you would send an email with a link containing the reset token
-    // For now, we'll just return success since we're in demo mode
+    // For now, we'll just log it since we're in demo mode
+    console.log(`Password reset token for ${email}: ${resetToken}`);
     console.log(`Password reset link: http://localhost:3000/auth/reset-password?token=${resetToken}&type=${userType}`);
 
     res.json({
@@ -727,14 +745,47 @@ router.post('/reset-password', async (req: express.Request, res: express.Respons
       });
     }
 
-    // In a real implementation, you would:
-    // 1. Find user by reset token
-    // 2. Check if token is valid and not expired
-    // 3. Update user's password using the new database methods
+    // Validate the reset token
+    const tokenValidation = await db.validatePasswordResetToken(token);
     
-    // For demo purposes, we'll just return success
-    console.log(`Resetting password for ${userType} with token: ${token}`);
+    if (!tokenValidation) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid or expired reset token' 
+      });
+    }
+
+    const { userId } = tokenValidation;
     
+    // Update password based on user type
+    let success = false;
+    switch (userType) {
+      case 'common_investor':
+        success = await db.updateCommonInvestorPassword(userId, newPassword);
+        break;
+      case 'institutional_investor':
+        success = await db.updateInstitutionalInvestorPassword(userId, newPassword);
+        break;
+      case 'seller':
+        success = await db.updatePartnerPassword(userId, newPassword);
+        break;
+      default:
+        return res.status(400).json({ 
+          success: false,
+          message: 'Invalid user type' 
+        });
+    }
+
+    if (!success) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to reset password. Please try again.' 
+      });
+    }
+
+    // Invalidate the token
+    await db.invalidatePasswordResetToken(token);
+
     res.json({
       success: true,
       message: 'Password has been reset successfully. You can now log in with your new password.'
@@ -760,6 +811,8 @@ router.post('/logout', authenticateUser, async (req: AuthenticatedRequest, res: 
       // Delete session from database based on user type
       if (req.userType === 'institutional_investor' || req.userType === 'seller') {
         await db.deleteInstitutionalSession(sessionToken);
+      } else if (req.userType === 'admin') {
+        await db.deleteAdminSession(sessionToken);
       } else {
         await db.deleteCommonInvestorSession(sessionToken);
       }
@@ -798,7 +851,7 @@ router.get('/status', async (req: express.Request, res: express.Response) => {
     // Try different session types
     let session = await db.getCommonInvestorSession(sessionToken);
     let user = null;
-    let userType: 'common_investor' | 'institutional_investor' | 'partner' | 'seller' = 'common_investor';
+    let userType: 'common_investor' | 'institutional_investor' | 'partner' | 'seller' | 'admin' = 'common_investor';
 
     if (session && session.expiresAt > new Date()) {
       user = await db.getCommonInvestorById(session.investorId);

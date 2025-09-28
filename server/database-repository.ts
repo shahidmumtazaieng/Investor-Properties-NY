@@ -347,10 +347,55 @@ export class DatabaseRepository {
           id: "f1",
           address: "789 Bronx Ave",
           county: "Bronx",
+          neighborhood: "Riverdale",
+          borough: "Bronx",
           auctionDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
           startingBid: "450000",
+          assessedValue: "500000",
           propertyType: "Multi-Family",
+          beds: 6,
+          baths: "4",
+          sqft: 3000,
+          yearBuilt: 1980,
+          description: "Investment property with multiple rental units",
+          docketNumber: "09876-54321",
+          plaintiff: "Chase Bank",
+          defendant: "John Doe",
+          attorney: "Smith & Associates",
+          attorneyPhone: "(555) 123-4567",
+          attorneyEmail: "smith@law.com",
+          caseNumber: "CV-2023-12345",
+          judgmentAmount: "450000",
+          interestRate: "4.5",
+          lienPosition: "First",
+          propertyCondition: "Good",
+          occupancyStatus: "Occupied",
+          redemptionPeriodEnd: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days from now
+          saleType: "Foreclosure Auction",
+          openingBid: "400000",
+          minimumBid: "350000",
+          depositRequirement: "10%",
+          saleTerms: "Cash only",
+          propertyImages: ["/placeholder-foreclosure.jpg"],
+          legalDescription: "Lot 1, Block 2, Riverdale Section 3",
+          parcelNumber: "123456789",
+          zoningClassification: "R3-2",
+          taxDelinquencyAmount: "15000",
+          hoaDues: "350",
+          utilities: "Gas, Electric, Water",
+          environmentalIssues: "None reported",
+          titleStatus: "Clear",
+          titleCompany: "Title Experts LLC",
+          titleCompanyPhone: "(555) 987-6543",
+          titleCompanyEmail: "info@titleexperts.com",
+          inspectionReportUrl: "/inspection-report-f1.pdf",
+          appraisalReportUrl: "/appraisal-report-f1.pdf",
+          propertyDocumentsUrl: "/property-documents-f1.zip",
+          notes: "Property in good condition, strong rental history",
+          status: "upcoming",
           isActive: true,
+          featured: false,
+          priorityLevel: 0,
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -358,10 +403,55 @@ export class DatabaseRepository {
           id: "f2",
           address: "321 Staten Island Way",
           county: "Richmond",
+          neighborhood: "St. George",
+          borough: "Staten Island",
           auctionDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
           startingBid: "380000",
+          assessedValue: "420000",
           propertyType: "Single Family",
+          beds: 3,
+          baths: "2",
+          sqft: 1800,
+          yearBuilt: 1995,
+          description: "Beautiful family home in great neighborhood",
+          docketNumber: "12345-67890",
+          plaintiff: "Bank of America",
+          defendant: "Jane Smith",
+          attorney: "Johnson Legal Group",
+          attorneyPhone: "(555) 234-5678",
+          attorneyEmail: "johnson@legal.com",
+          caseNumber: "CV-2023-98765",
+          judgmentAmount: "380000",
+          interestRate: "3.75",
+          lienPosition: "First",
+          propertyCondition: "Fair",
+          occupancyStatus: "Vacant",
+          redemptionPeriodEnd: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(), // 45 days from now
+          saleType: "Foreclosure Auction",
+          openingBid: "350000",
+          minimumBid: "300000",
+          depositRequirement: "10%",
+          saleTerms: "Cash or approved financing",
+          propertyImages: ["/placeholder-foreclosure2.jpg"],
+          legalDescription: "Lot 5, Block 1, St. George Heights",
+          parcelNumber: "987654321",
+          zoningClassification: "R4-1",
+          taxDelinquencyAmount: "12000",
+          hoaDues: "200",
+          utilities: "Electric, Water",
+          environmentalIssues: "Asbestos reported",
+          titleStatus: "Clouded",
+          titleCompany: "Secure Title Services",
+          titleCompanyPhone: "(555) 876-5432",
+          titleCompanyEmail: "contact@securetitle.com",
+          inspectionReportUrl: "/inspection-report-f2.pdf",
+          appraisalReportUrl: "/appraisal-report-f2.pdf",
+          propertyDocumentsUrl: "/property-documents-f2.zip",
+          notes: "Needs some renovation but good bones",
+          status: "upcoming",
           isActive: true,
+          featured: false,
+          priorityLevel: 0,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -387,7 +477,49 @@ export class DatabaseRepository {
     // Handle demo mode
     if (!db) {
       console.log('Demo mode: not creating foreclosure listing');
-      return { id: 'demo-foreclosure-listing-id', ...listingData };
+      return { 
+        id: 'demo-foreclosure-listing-id', 
+        ...listingData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: listingData.isActive !== undefined ? listingData.isActive : true,
+        featured: listingData.featured !== undefined ? listingData.featured : false,
+        priorityLevel: listingData.priorityLevel !== undefined ? listingData.priorityLevel : 0,
+        neighborhood: listingData.neighborhood !== undefined ? listingData.neighborhood : null,
+        borough: listingData.borough !== undefined ? listingData.borough : null,
+        notes: listingData.notes !== undefined ? listingData.notes : null,
+        defendant: listingData.defendant !== undefined ? listingData.defendant : null,
+        attorney: listingData.attorney !== undefined ? listingData.attorney : null,
+        attorneyPhone: listingData.attorneyPhone !== undefined ? listingData.attorneyPhone : null,
+        attorneyEmail: listingData.attorneyEmail !== undefined ? listingData.attorneyEmail : null,
+        caseNumber: listingData.caseNumber !== undefined ? listingData.caseNumber : null,
+        judgmentAmount: listingData.judgmentAmount !== undefined ? listingData.judgmentAmount : null,
+        interestRate: listingData.interestRate !== undefined ? listingData.interestRate : null,
+        lienPosition: listingData.lienPosition !== undefined ? listingData.lienPosition : null,
+        propertyCondition: listingData.propertyCondition !== undefined ? listingData.propertyCondition : null,
+        occupancyStatus: listingData.occupancyStatus !== undefined ? listingData.occupancyStatus : null,
+        redemptionPeriodEnd: listingData.redemptionPeriodEnd !== undefined ? listingData.redemptionPeriodEnd : null,
+        saleType: listingData.saleType !== undefined ? listingData.saleType : null,
+        openingBid: listingData.openingBid !== undefined ? listingData.openingBid : null,
+        minimumBid: listingData.minimumBid !== undefined ? listingData.minimumBid : null,
+        depositRequirement: listingData.depositRequirement !== undefined ? listingData.depositRequirement : null,
+        saleTerms: listingData.saleTerms !== undefined ? listingData.saleTerms : null,
+        propertyImages: listingData.propertyImages !== undefined ? listingData.propertyImages : null,
+        legalDescription: listingData.legalDescription !== undefined ? listingData.legalDescription : null,
+        parcelNumber: listingData.parcelNumber !== undefined ? listingData.parcelNumber : null,
+        zoningClassification: listingData.zoningClassification !== undefined ? listingData.zoningClassification : null,
+        taxDelinquencyAmount: listingData.taxDelinquencyAmount !== undefined ? listingData.taxDelinquencyAmount : null,
+        hoaDues: listingData.hoaDues !== undefined ? listingData.hoaDues : null,
+        utilities: listingData.utilities !== undefined ? listingData.utilities : null,
+        environmentalIssues: listingData.environmentalIssues !== undefined ? listingData.environmentalIssues : null,
+        titleStatus: listingData.titleStatus !== undefined ? listingData.titleStatus : null,
+        titleCompany: listingData.titleCompany !== undefined ? listingData.titleCompany : null,
+        titleCompanyPhone: listingData.titleCompanyPhone !== undefined ? listingData.titleCompanyPhone : null,
+        titleCompanyEmail: listingData.titleCompanyEmail !== undefined ? listingData.titleCompanyEmail : null,
+        inspectionReportUrl: listingData.inspectionReportUrl !== undefined ? listingData.inspectionReportUrl : null,
+        appraisalReportUrl: listingData.appraisalReportUrl !== undefined ? listingData.appraisalReportUrl : null,
+        propertyDocumentsUrl: listingData.propertyDocumentsUrl !== undefined ? listingData.propertyDocumentsUrl : null
+      };
     }
     const result = await db.insert(schema.foreclosureListings).values(listingData).returning();
     return result[0];
@@ -401,6 +533,19 @@ export class DatabaseRepository {
     }
     const result = await db.update(schema.foreclosureListings)
       .set({ ...listingData, updatedAt: new Date() })
+      .where(eq(schema.foreclosureListings.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteForeclosureListing(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not deleting foreclosure listing');
+      return { id };
+    }
+    const result = await db.update(schema.foreclosureListings)
+      .set({ isActive: false, updatedAt: new Date() })
       .where(eq(schema.foreclosureListings.id, id))
       .returning();
     return result[0];
@@ -747,6 +892,83 @@ export class DatabaseRepository {
 
   // ==================== PASSWORD RESET ====================
   
+  async createPasswordResetToken(userId: string, userType: string): Promise<string> {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock reset token');
+      return 'demo-reset-token';
+    }
+    
+    try {
+      const token = this.generateEmailVerificationToken();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+      
+      await db.insert(schema.passwordResetTokens).values({
+        userId,
+        userType,
+        token,
+        expiresAt,
+        used: false,
+        createdAt: new Date()
+      });
+      
+      return token;
+    } catch (error) {
+      console.error('Error creating password reset token:', error);
+      throw error;
+    }
+  }
+  
+  async validatePasswordResetToken(token: string): Promise<{ userId: string, userType: string } | null> {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: validating mock reset token');
+      if (token === 'demo-reset-token') {
+        return { userId: 'demo-user-id', userType: 'common_investor' };
+      }
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.passwordResetTokens)
+        .where(
+          and(
+            eq(schema.passwordResetTokens.token, token),
+            eq(schema.passwordResetTokens.used, false),
+            gte(schema.passwordResetTokens.expiresAt, new Date())
+          )
+        );
+      
+      if (result.length === 0) {
+        return null;
+      }
+      
+      return {
+        userId: result[0].userId,
+        userType: result[0].userType
+      };
+    } catch (error) {
+      console.error('Error validating password reset token:', error);
+      return null;
+    }
+  }
+  
+  async invalidatePasswordResetToken(token: string): Promise<void> {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: invalidating mock reset token');
+      return;
+    }
+    
+    try {
+      await db.update(schema.passwordResetTokens)
+        .set({ used: true })
+        .where(eq(schema.passwordResetTokens.token, token));
+    } catch (error) {
+      console.error('Error invalidating password reset token:', error);
+    }
+  }
+  
   async updateCommonInvestorPassword(id: string, newPassword: string): Promise<boolean> {
     // Handle demo mode
     if (!db) {
@@ -759,6 +981,8 @@ export class DatabaseRepository {
       await db.update(schema.commonInvestors)
         .set({ 
           password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
           updatedAt: new Date()
         })
         .where(eq(schema.commonInvestors.id, id));
@@ -781,6 +1005,8 @@ export class DatabaseRepository {
       await db.update(schema.institutionalInvestors)
         .set({ 
           password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
           updatedAt: new Date()
         })
         .where(eq(schema.institutionalInvestors.id, id));
@@ -803,6 +1029,8 @@ export class DatabaseRepository {
       await db.update(schema.partners)
         .set({ 
           password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
           updatedAt: new Date()
         })
         .where(eq(schema.partners.id, id));
@@ -811,5 +1039,269 @@ export class DatabaseRepository {
       console.error('Error updating partner password:', error);
       return false;
     }
+  }
+  
+  async updateAdminPassword(id: string, newPassword: string): Promise<boolean> {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating admin password');
+      return true;
+    }
+    
+    try {
+      const hashedPassword = await this.hashPassword(newPassword);
+      await db.update(schema.adminUsers)
+        .set({ 
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.adminUsers.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error updating admin password:', error);
+      return false;
+    }
+  }
+
+  // ==================== ADMIN USERS ====================
+  async getAllAdminUsers() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock admin users data');
+      return [];
+    }
+    return await db.select().from(schema.adminUsers);
+  }
+
+  async getAdminUserById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock admin user data');
+      return null;
+    }
+    const result = await db.select().from(schema.adminUsers).where(eq(schema.adminUsers.id, id));
+    return result[0] || null;
+  }
+
+  async getAdminUserByUsername(username: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock admin user data for username:', username);
+      // For demo purposes, return a mock admin user if username is 'admin'
+      if (username === 'admin') {
+        return {
+          id: 'admin-1',
+          username: 'admin',
+          email: 'admin@example.com',
+          firstName: 'Admin',
+          lastName: 'User',
+          password: 'admin123', // In real implementation, this would be hashed
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      }
+      return null;
+    }
+    const result = await db.select().from(schema.adminUsers).where(eq(schema.adminUsers.username, username));
+    return result[0] || null;
+  }
+
+  async getAdminUserByEmail(email: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock admin user data for email:', email);
+      return null;
+    }
+    const result = await db.select().from(schema.adminUsers).where(eq(schema.adminUsers.email, email));
+    return result[0] || null;
+  }
+
+  async authenticateAdmin(username: string, password: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not authenticating admin');
+      // For demo purposes, accept 'admin'/'admin123'
+      if (username === 'admin' && password === 'admin123') {
+        return {
+          id: 'admin-1',
+          username: 'admin',
+          email: 'admin@example.com',
+          firstName: 'Admin',
+          lastName: 'User',
+          userType: 'admin'
+        };
+      }
+      return null;
+    }
+
+    const admin = await this.getAdminUserByUsername(username);
+    if (!admin) {
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, admin.password);
+    if (!isValid) {
+      return null;
+    }
+
+    return admin;
+  }
+
+  async createAdminUser(adminData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating admin user');
+      return { id: 'demo-admin-id', ...adminData };
+    }
+    const result = await db.insert(schema.adminUsers).values(adminData).returning();
+    return result[0];
+  }
+
+  async updateAdminUser(id: string, adminData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating admin user');
+      return { id, ...adminData };
+    }
+    const result = await db.update(schema.adminUsers)
+      .set({ ...adminData, updatedAt: new Date() })
+      .where(eq(schema.adminUsers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // ==================== ADMIN SESSIONS ====================
+  async createAdminSession(adminId: string, sessionToken: string, expiresAt: Date) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating admin session');
+      return;
+    }
+    await db.insert(schema.adminSessions).values({
+      adminId,
+      sessionToken,
+      expiresAt,
+      createdAt: new Date()
+    }).returning();
+  }
+
+  async getAdminSession(sessionToken: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock admin session data');
+      return null;
+    }
+    const result = await db.select().from(schema.adminSessions)
+      .where(eq(schema.adminSessions.sessionToken, sessionToken));
+    return result[0] || null;
+  }
+
+  async deleteAdminSession(sessionToken: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not deleting admin session');
+      return;
+    }
+    await db.delete(schema.adminSessions)
+      .where(eq(schema.adminSessions.sessionToken, sessionToken));
+  }
+
+  // ==================== BLOGS ====================
+  async getAllBlogs() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock blogs data');
+      return [
+        {
+          id: "1",
+          title: "Understanding New York Real Estate Market Trends",
+          excerpt: "An analysis of current market conditions and future predictions for NYC real estate.",
+          content: "Full blog content would go here...",
+          slug: "ny-real-estate-trends",
+          author: "Alex Morgan",
+          tags: ["market analysis", "trends", "NYC"],
+          published: true,
+          publishedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          featured: false,
+          coverImage: "/placeholder-blog.jpg",
+          viewCount: 0
+        },
+        {
+          id: "2",
+          title: "Top 10 Investment Opportunities in Brooklyn",
+          excerpt: "Discover the most promising neighborhoods for real estate investment in Brooklyn.",
+          content: "Full blog content would go here...",
+          slug: "brooklyn-investment-opportunities",
+          author: "Jamie Chen",
+          tags: ["investment", "Brooklyn", "opportunities"],
+          published: true,
+          publishedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          featured: false,
+          coverImage: "/placeholder-blog.jpg",
+          viewCount: 0
+        }
+      ];
+    }
+    return await db.select().from(schema.blogs).orderBy(desc(schema.blogs.createdAt));
+  }
+
+  async getBlogById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock blog data for id:', id);
+      return null;
+    }
+    const result = await db.select().from(schema.blogs).where(eq(schema.blogs.id, id));
+    return result[0] || null;
+  }
+
+  async getBlogBySlug(slug: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock blog data for slug:', slug);
+      return null;
+    }
+    const result = await db.select().from(schema.blogs).where(eq(schema.blogs.slug, slug));
+    return result[0] || null;
+  }
+
+  async createBlog(blogData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating blog');
+      return { id: 'demo-blog-id', ...blogData };
+    }
+    const result = await db.insert(schema.blogs).values(blogData).returning();
+    return result[0];
+  }
+
+  async updateBlog(id: string, blogData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating blog');
+      return { id, ...blogData };
+    }
+    const result = await db.update(schema.blogs)
+      .set({ ...blogData, updatedAt: new Date() })
+      .where(eq(schema.blogs.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteBlog(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not deleting blog');
+      return { id };
+    }
+    const result = await db.delete(schema.blogs).where(eq(schema.blogs.id, id)).returning();
+    return result[0];
   }
 }

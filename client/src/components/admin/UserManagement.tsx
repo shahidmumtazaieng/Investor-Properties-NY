@@ -26,6 +26,15 @@ const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [userTypeFilter, setUserTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
+  const [newAdmin, setNewAdmin] = useState({
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    password: '',
+    confirmPassword: ''
+  });
 
   useEffect(() => {
     // Check if user is admin
@@ -40,52 +49,18 @@ const UserManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      // Simulate API call
-      const mockUsers: User[] = [
-        {
-          id: '1',
-          username: 'johndoe',
-          email: 'john@example.com',
-          firstName: 'John',
-          lastName: 'Doe',
-          userType: 'common_investor',
-          status: 'active',
-          createdAt: '2023-01-15'
-        },
-        {
-          id: '2',
-          username: 'janedoe',
-          email: 'jane@example.com',
-          firstName: 'Jane',
-          lastName: 'Doe',
-          userType: 'institutional_investor',
-          status: 'active',
-          createdAt: '2023-02-20'
-        },
-        {
-          id: '3',
-          username: 'seller123',
-          email: 'seller@example.com',
-          firstName: 'Bob',
-          lastName: 'Smith',
-          userType: 'seller',
-          status: 'pending',
-          createdAt: '2023-03-10'
-        },
-        {
-          id: '4',
-          username: 'adminuser',
-          email: 'admin@example.com',
-          firstName: 'Admin',
-          lastName: 'User',
-          userType: 'admin',
-          status: 'active',
-          createdAt: '2023-01-01'
-        }
-      ];
+      const response = await fetch('/api/admin/users', {
+        credentials: 'include'
+      });
       
-      setUsers(mockUsers);
-      setFilteredUsers(mockUsers);
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      
+      const usersData = await response.json();
+      
+      setUsers(usersData);
+      setFilteredUsers(usersData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -119,10 +94,125 @@ const UserManagement: React.FC = () => {
     setFilteredUsers(result);
   }, [searchTerm, userTypeFilter, statusFilter, users]);
 
-  const handleUserAction = (userId: string, action: string) => {
-    // Simulate user action
-    console.log(`Action ${action} performed on user ${userId}`);
-    alert(`Action ${action} performed on user ${userId}`);
+  const handleUserAction = async (userId: string, action: string) => {
+    try {
+      let response;
+      
+      switch (action) {
+        case 'view':
+          // For view action, we could open a modal or navigate to user details page
+          console.log(`View user ${userId}`);
+          alert(`View details for user ${userId}`);
+          break;
+        case 'approve':
+          // In a real implementation, this would update the user status
+          response = await fetch(`/api/admin/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ status: 'active' })
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to approve user');
+          }
+          
+          alert(`User ${userId} approved successfully`);
+          // Refresh the user list
+          fetchUsers();
+          break;
+        case 'edit':
+          // For edit action, we could open an edit modal
+          console.log(`Edit user ${userId}`);
+          alert(`Edit user ${userId}`);
+          break;
+        case 'delete':
+          if (window.confirm('Are you sure you want to delete this user?')) {
+            response = await fetch(`/api/admin/users/${userId}`, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            
+            if (!response.ok) {
+              throw new Error('Failed to delete user');
+            }
+            
+            alert(`User ${userId} deleted successfully`);
+            // Refresh the user list
+            fetchUsers();
+          }
+          break;
+        default:
+          console.log(`Action ${action} performed on user ${userId}`);
+          break;
+      }
+    } catch (error: any) {
+      console.error(`Error performing action ${action} on user ${userId}:`, error);
+      alert(`Failed to perform action: ${error.message || error}`);
+    }
+  };
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (newAdmin.password !== newAdmin.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    
+    if (newAdmin.password.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/admin/users/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...newAdmin,
+          status: 'active'
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create admin user');
+      }
+      
+      const result = await response.json();
+      alert(result.message);
+      
+      // Close modal and reset form
+      setShowCreateAdminModal(false);
+      setNewAdmin({
+        username: '',
+        email: '',
+        firstName: '',
+        lastName: '',
+        password: '',
+        confirmPassword: ''
+      });
+      
+      // Refresh user list
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error creating admin user:', error);
+      alert(`Failed to create admin user: ${error.message || error}`);
+    }
+  };
+
+  const handleNewAdminChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewAdmin({
+      ...newAdmin,
+      [e.target.name]: e.target.value
+    });
   };
 
   if (!user || user.userType !== 'admin') {
@@ -147,8 +237,8 @@ const UserManagement: React.FC = () => {
               <p className="mt-2 text-gray-600">Manage all users in the system</p>
             </div>
             <div className="mt-4 md:mt-0">
-              <Button variant="primary" onClick={() => console.log('Add new user')}>
-                Add New User
+              <Button variant="primary" onClick={() => setShowCreateAdminModal(true)}>
+                Add New Admin
               </Button>
             </div>
           </div>
@@ -295,6 +385,13 @@ const UserManagement: React.FC = () => {
                             >
                               Edit
                             </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleUserAction(user.id, 'delete')}
+                            >
+                              Delete
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -312,6 +409,95 @@ const UserManagement: React.FC = () => {
           </Card>
         )}
       </div>
+
+      {/* Create Admin Modal */}
+      {showCreateAdminModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Create New Admin User</h3>
+            </div>
+            <form onSubmit={handleCreateAdmin}>
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Username</label>
+                  <Input
+                    type="text"
+                    name="username"
+                    value={newAdmin.username}
+                    onChange={handleNewAdminChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <Input
+                    type="email"
+                    name="email"
+                    value={newAdmin.email}
+                    onChange={handleNewAdminChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">First Name</label>
+                  <Input
+                    type="text"
+                    name="firstName"
+                    value={newAdmin.firstName}
+                    onChange={handleNewAdminChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                  <Input
+                    type="text"
+                    name="lastName"
+                    value={newAdmin.lastName}
+                    onChange={handleNewAdminChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <Input
+                    type="password"
+                    name="password"
+                    value={newAdmin.password}
+                    onChange={handleNewAdminChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                  <Input
+                    type="password"
+                    name="confirmPassword"
+                    value={newAdmin.confirmPassword}
+                    onChange={handleNewAdminChange}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowCreateAdminModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="primary" 
+                  type="submit"
+                >
+                  Create Admin
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

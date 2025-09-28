@@ -142,54 +142,324 @@ router.get('/dashboard/stats', authenticateAdmin, async (req: AdminRequest, res:
 // Get all users
 router.get('/users', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
-    // Mock user data
+    // Fetch all users from different tables
+    const commonInvestors = await db.getAllCommonInvestors();
+    const institutionalInvestors = await db.getAllInstitutionalInvestors();
+    const partners = await db.getAllPartners();
+    const adminUsers = await db.getAllAdminUsers();
+    
+    // Transform data to match frontend expectations
     const users = [
-      {
-        id: '1',
-        username: 'johndoe',
-        email: 'john@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
+      ...commonInvestors.map(investor => ({
+        id: investor.id,
+        username: investor.username,
+        email: investor.email,
+        firstName: investor.firstName,
+        lastName: investor.lastName,
         userType: 'common_investor',
-        status: 'active',
-        createdAt: '2023-01-15'
-      },
-      {
-        id: '2',
-        username: 'janedoe',
-        email: 'jane@example.com',
-        firstName: 'Jane',
-        lastName: 'Doe',
+        status: investor.isActive ? 'active' : 'suspended',
+        createdAt: investor.createdAt?.toISOString() || new Date().toISOString()
+      })),
+      ...institutionalInvestors.map(investor => ({
+        id: investor.id,
+        username: investor.username || investor.email,
+        email: investor.email,
+        firstName: investor.personName,
+        lastName: '',
         userType: 'institutional_investor',
-        status: 'active',
-        createdAt: '2023-02-20'
-      },
-      {
-        id: '3',
-        username: 'seller123',
-        email: 'seller@example.com',
-        firstName: 'Bob',
-        lastName: 'Smith',
+        status: investor.isActive ? 'active' : 'suspended',
+        createdAt: investor.createdAt?.toISOString() || new Date().toISOString()
+      })),
+      ...partners.map(partner => ({
+        id: partner.id,
+        username: partner.username,
+        email: partner.email,
+        firstName: partner.firstName,
+        lastName: partner.lastName,
         userType: 'seller',
-        status: 'pending',
-        createdAt: '2023-03-10'
-      },
-      {
-        id: '4',
-        username: 'adminuser',
-        email: 'admin@example.com',
-        firstName: 'Admin',
-        lastName: 'User',
+        status: partner.isActive ? 'active' : 'suspended',
+        createdAt: partner.createdAt?.toISOString() || new Date().toISOString()
+      })),
+      ...adminUsers.map((admin: any) => ({
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
         userType: 'admin',
-        status: 'active',
-        createdAt: '2023-01-01'
-      }
+        status: admin.isActive ? 'active' : 'suspended',
+        createdAt: admin.createdAt?.toISOString() || new Date().toISOString()
+      }))
     ];
     
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ message: 'Failed to fetch users' });
+  }
+});
+
+// Get user by ID
+router.get('/users/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Try to find user in different tables
+    let user = null;
+    let userType = '';
+    
+    // Check common investors
+    const commonInvestor = await db.getCommonInvestorById(id);
+    if (commonInvestor) {
+      user = commonInvestor;
+      userType = 'common_investor';
+    } else {
+      // Check institutional investors
+      const institutionalInvestor = await db.getInstitutionalInvestorById(id);
+      if (institutionalInvestor) {
+        user = institutionalInvestor;
+        userType = 'institutional_investor';
+      } else {
+        // Check partners
+        const partner = await db.getPartnerById(id);
+        if (partner) {
+          user = partner;
+          userType = 'seller';
+        } else {
+          // Check admin users
+          const adminUser = await db.getAdminUserById(id);
+          if (adminUser) {
+            user = adminUser;
+            userType = 'admin';
+          }
+        }
+      }
+    }
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Transform data to match frontend expectations
+    const userData: any = {
+      id: user.id,
+      username: user.username || (userType === 'institutional_investor' ? user.email : user.username),
+      email: user.email,
+      firstName: userType === 'institutional_investor' ? (user as any).personName : (user as any).firstName,
+      lastName: userType === 'institutional_investor' ? '' : ((user as any).lastName || ''),
+      userType: userType,
+      status: (user as any).isActive !== undefined ? ((user as any).isActive ? 'active' : 'suspended') : 'active',
+      createdAt: (user as any).createdAt?.toISOString() || new Date().toISOString()
+    };
+    
+    // Add admin-specific fields
+    if (userType === 'admin' && 'lastLoginAt' in user) {
+      userData.lastLoginAt = (user as any).lastLoginAt?.toISOString() || null;
+    }
+    
+    res.json(userData);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Failed to fetch user' });
+  }
+});
+
+// Update user
+router.put('/users/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const userData = req.body;
+    
+    // Try to find user in different tables
+    let user = null;
+    let userType = '';
+    
+    // Check common investors
+    const commonInvestor = await db.getCommonInvestorById(id);
+    if (commonInvestor) {
+      user = commonInvestor;
+      userType = 'common_investor';
+    } else {
+      // Check institutional investors
+      const institutionalInvestor = await db.getInstitutionalInvestorById(id);
+      if (institutionalInvestor) {
+        user = institutionalInvestor;
+        userType = 'institutional_investor';
+      } else {
+        // Check partners
+        const partner = await db.getPartnerById(id);
+        if (partner) {
+          user = partner;
+          userType = 'seller';
+        } else {
+          // Check admin users
+          const adminUser = await db.getAdminUserById(id);
+          if (adminUser) {
+            user = adminUser;
+            userType = 'admin';
+          }
+        }
+      }
+    }
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update user based on type
+    let updatedUser;
+    if (userType === 'common_investor') {
+      updatedUser = await db.updateCommonInvestor(id, {
+        username: userData.username,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        isActive: userData.status === 'active'
+      });
+    } else if (userType === 'institutional_investor') {
+      updatedUser = await db.updateInstitutionalInvestor(id, {
+        username: userData.username,
+        email: userData.email,
+        personName: userData.firstName,
+        isActive: userData.status === 'active'
+      });
+    } else if (userType === 'seller') {
+      updatedUser = await db.updatePartner(id, {
+        username: userData.username,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        isActive: userData.status === 'active'
+      });
+    } else if (userType === 'admin') {
+      updatedUser = await db.updateAdminUser(id, {
+        username: userData.username,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        isActive: userData.status === 'active'
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `User ${id} updated successfully`,
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update user' 
+    });
+  }
+});
+
+// Delete user
+router.delete('/users/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Try to find user in different tables
+    let user = null;
+    let userType = '';
+    
+    // Check common investors
+    const commonInvestor = await db.getCommonInvestorById(id);
+    if (commonInvestor) {
+      user = commonInvestor;
+      userType = 'common_investor';
+    } else {
+      // Check institutional investors
+      const institutionalInvestor = await db.getInstitutionalInvestorById(id);
+      if (institutionalInvestor) {
+        user = institutionalInvestor;
+        userType = 'institutional_investor';
+      } else {
+        // Check partners
+        const partner = await db.getPartnerById(id);
+        if (partner) {
+          user = partner;
+          userType = 'seller';
+        } else {
+          // Check admin users
+          const adminUser = await db.getAdminUserById(id);
+          if (adminUser) {
+            user = adminUser;
+            userType = 'admin';
+          }
+        }
+      }
+    }
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Delete user based on type (set inactive instead of actual delete)
+    if (userType === 'common_investor') {
+      await db.updateCommonInvestor(id, { isActive: false });
+    } else if (userType === 'institutional_investor') {
+      await db.updateInstitutionalInvestor(id, { isActive: false });
+    } else if (userType === 'seller') {
+      await db.updatePartner(id, { isActive: false });
+    } else if (userType === 'admin') {
+      await db.updateAdminUser(id, { isActive: false });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `User ${id} deleted successfully`
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to delete user' 
+    });
+  }
+});
+
+// Create admin user
+router.post('/users/admin', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const adminData = req.body;
+    
+    // Hash password
+    const hashedPassword = await db.hashPassword(adminData.password);
+    
+    // Create admin user
+    const newAdmin = await db.createAdminUser({
+      username: adminData.username,
+      email: adminData.email,
+      firstName: adminData.firstName,
+      lastName: adminData.lastName,
+      password: hashedPassword,
+      isActive: adminData.status === 'active',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Admin user created successfully',
+      user: {
+        id: newAdmin.id,
+        username: newAdmin.username,
+        email: newAdmin.email,
+        firstName: newAdmin.firstName,
+        lastName: newAdmin.lastName,
+        userType: 'admin',
+        status: newAdmin.isActive ? 'active' : 'suspended',
+        createdAt: newAdmin.createdAt?.toISOString() || new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create admin user' 
+    });
   }
 });
 
@@ -669,48 +939,7 @@ router.post('/security/events/:id/resolve', authenticateAdmin, async (req: Admin
 // Get all foreclosure listings
 router.get('/foreclosures', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
-    // Mock foreclosure data
-    const foreclosures = [
-      {
-        id: 'f1',
-        address: '123 Main St',
-        county: 'Queens',
-        auctionDate: '2024-02-15',
-        startingBid: '450000',
-        assessedValue: '500000',
-        propertyType: 'Single Family',
-        beds: 3,
-        baths: '2',
-        sqft: 1800,
-        yearBuilt: 1995,
-        description: 'Beautiful family home in great neighborhood',
-        docketNumber: '12345-67890',
-        plaintiff: 'Bank of America',
-        status: 'upcoming',
-        isActive: true,
-        createdAt: '2023-01-15'
-      },
-      {
-        id: 'f2',
-        address: '456 Oak Ave',
-        county: 'Brooklyn',
-        auctionDate: '2024-02-20',
-        startingBid: '380000',
-        assessedValue: '420000',
-        propertyType: 'Multi-Family',
-        beds: 6,
-        baths: '4',
-        sqft: 3000,
-        yearBuilt: 1980,
-        description: 'Investment property with multiple rental units',
-        docketNumber: '09876-54321',
-        plaintiff: 'Chase Bank',
-        status: 'upcoming',
-        isActive: true,
-        createdAt: '2023-02-20'
-      }
-    ];
-    
+    const foreclosures = await db.getAllForeclosureListings();
     res.json(foreclosures);
   } catch (error) {
     console.error('Error fetching foreclosure listings:', error);
@@ -734,18 +963,63 @@ router.post('/foreclosures', authenticateAdmin, async (req: AdminRequest, res: e
       }
     }
     
-    // In a real implementation, this would save to the database
-    // For now, we'll return a mock response
-    const newForeclosure = {
-      id: Date.now().toString(),
-      ...foreclosureData,
+    const newForeclosure = await db.createForeclosureListing({
+      address: foreclosureData.address,
+      county: foreclosureData.county,
+      neighborhood: foreclosureData.neighborhood,
+      borough: foreclosureData.borough,
+      auctionDate: foreclosureData.auctionDate,
+      startingBid: foreclosureData.startingBid,
+      assessedValue: foreclosureData.assessedValue,
+      propertyType: foreclosureData.propertyType,
+      beds: foreclosureData.beds,
+      baths: foreclosureData.baths,
+      sqft: foreclosureData.sqft,
+      yearBuilt: foreclosureData.yearBuilt,
+      description: foreclosureData.description,
+      docketNumber: foreclosureData.docketNumber,
+      plaintiff: foreclosureData.plaintiff,
+      defendant: foreclosureData.defendant,
+      attorney: foreclosureData.attorney,
+      attorneyPhone: foreclosureData.attorneyPhone,
+      attorneyEmail: foreclosureData.attorneyEmail,
+      caseNumber: foreclosureData.caseNumber,
+      judgmentAmount: foreclosureData.judgmentAmount,
+      interestRate: foreclosureData.interestRate,
+      lienPosition: foreclosureData.lienPosition,
+      propertyCondition: foreclosureData.propertyCondition,
+      occupancyStatus: foreclosureData.occupancyStatus,
+      redemptionPeriodEnd: foreclosureData.redemptionPeriodEnd,
+      saleType: foreclosureData.saleType,
+      openingBid: foreclosureData.openingBid,
+      minimumBid: foreclosureData.minimumBid,
+      depositRequirement: foreclosureData.depositRequirement,
+      saleTerms: foreclosureData.saleTerms,
+      propertyImages: foreclosureData.propertyImages,
+      legalDescription: foreclosureData.legalDescription,
+      parcelNumber: foreclosureData.parcelNumber,
+      zoningClassification: foreclosureData.zoningClassification,
+      taxDelinquencyAmount: foreclosureData.taxDelinquencyAmount,
+      hoaDues: foreclosureData.hoaDues,
+      utilities: foreclosureData.utilities,
+      environmentalIssues: foreclosureData.environmentalIssues,
+      titleStatus: foreclosureData.titleStatus,
+      titleCompany: foreclosureData.titleCompany,
+      titleCompanyPhone: foreclosureData.titleCompanyPhone,
+      titleCompanyEmail: foreclosureData.titleCompanyEmail,
+      inspectionReportUrl: foreclosureData.inspectionReportUrl,
+      appraisalReportUrl: foreclosureData.appraisalReportUrl,
+      propertyDocumentsUrl: foreclosureData.propertyDocumentsUrl,
+      notes: foreclosureData.notes,
+      status: foreclosureData.status || 'upcoming',
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+      featured: foreclosureData.featured || false,
+      priorityLevel: foreclosureData.priorityLevel || 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
     
-    // Send notification based on subscription status
-    // Institutional investors get free access, common investors need subscription
+    // Send notification to subscribers
     try {
       await NotificationService.sendForeclosureUpdateNotification(newForeclosure);
     } catch (notificationError) {
@@ -773,13 +1047,68 @@ router.put('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, res
     const { id } = req.params;
     const foreclosureData = req.body;
     
-    // In a real implementation, this would update the database
-    // For now, we'll return a mock response
-    const updatedForeclosure = {
-      id,
-      ...foreclosureData,
-      updatedAt: new Date().toISOString()
-    };
+    // Check if foreclosure listing exists
+    const existingForeclosure = await db.getForeclosureListingById(id);
+    if (!existingForeclosure) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Foreclosure listing not found' 
+      });
+    }
+    
+    const updatedForeclosure = await db.updateForeclosureListing(id, {
+      address: foreclosureData.address,
+      county: foreclosureData.county,
+      neighborhood: foreclosureData.neighborhood,
+      borough: foreclosureData.borough,
+      auctionDate: foreclosureData.auctionDate,
+      startingBid: foreclosureData.startingBid,
+      assessedValue: foreclosureData.assessedValue,
+      propertyType: foreclosureData.propertyType,
+      beds: foreclosureData.beds,
+      baths: foreclosureData.baths,
+      sqft: foreclosureData.sqft,
+      yearBuilt: foreclosureData.yearBuilt,
+      description: foreclosureData.description,
+      docketNumber: foreclosureData.docketNumber,
+      plaintiff: foreclosureData.plaintiff,
+      defendant: foreclosureData.defendant,
+      attorney: foreclosureData.attorney,
+      attorneyPhone: foreclosureData.attorneyPhone,
+      attorneyEmail: foreclosureData.attorneyEmail,
+      caseNumber: foreclosureData.caseNumber,
+      judgmentAmount: foreclosureData.judgmentAmount,
+      interestRate: foreclosureData.interestRate,
+      lienPosition: foreclosureData.lienPosition,
+      propertyCondition: foreclosureData.propertyCondition,
+      occupancyStatus: foreclosureData.occupancyStatus,
+      redemptionPeriodEnd: foreclosureData.redemptionPeriodEnd,
+      saleType: foreclosureData.saleType,
+      openingBid: foreclosureData.openingBid,
+      minimumBid: foreclosureData.minimumBid,
+      depositRequirement: foreclosureData.depositRequirement,
+      saleTerms: foreclosureData.saleTerms,
+      propertyImages: foreclosureData.propertyImages,
+      legalDescription: foreclosureData.legalDescription,
+      parcelNumber: foreclosureData.parcelNumber,
+      zoningClassification: foreclosureData.zoningClassification,
+      taxDelinquencyAmount: foreclosureData.taxDelinquencyAmount,
+      hoaDues: foreclosureData.hoaDues,
+      utilities: foreclosureData.utilities,
+      environmentalIssues: foreclosureData.environmentalIssues,
+      titleStatus: foreclosureData.titleStatus,
+      titleCompany: foreclosureData.titleCompany,
+      titleCompanyPhone: foreclosureData.titleCompanyPhone,
+      titleCompanyEmail: foreclosureData.titleCompanyEmail,
+      inspectionReportUrl: foreclosureData.inspectionReportUrl,
+      appraisalReportUrl: foreclosureData.appraisalReportUrl,
+      propertyDocumentsUrl: foreclosureData.propertyDocumentsUrl,
+      notes: foreclosureData.notes,
+      status: foreclosureData.status,
+      featured: foreclosureData.featured,
+      priorityLevel: foreclosureData.priorityLevel,
+      updatedAt: new Date()
+    });
     
     res.json({ 
       success: true, 
@@ -800,8 +1129,17 @@ router.delete('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, 
   try {
     const { id } = req.params;
     
-    // In a real implementation, this would delete from the database
-    // For now, we'll return a mock response
+    // Check if foreclosure listing exists
+    const existingForeclosure = await db.getForeclosureListingById(id);
+    if (!existingForeclosure) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Foreclosure listing not found' 
+      });
+    }
+    
+    await db.deleteForeclosureListing(id);
+    
     res.json({ 
       success: true, 
       message: `Foreclosure listing ${id} deleted successfully`
@@ -820,11 +1158,24 @@ router.post('/foreclosures/:id/toggle', authenticateAdmin, async (req: AdminRequ
   try {
     const { id } = req.params;
     
-    // In a real implementation, this would toggle the isActive status in the database
-    // For now, we'll return a mock response
+    // Check if foreclosure listing exists
+    const existingForeclosure = await db.getForeclosureListingById(id);
+    if (!existingForeclosure) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Foreclosure listing not found' 
+      });
+    }
+    
+    const updatedForeclosure = await db.updateForeclosureListing(id, {
+      isActive: !existingForeclosure.isActive,
+      updatedAt: new Date()
+    });
+    
     res.json({ 
       success: true, 
-      message: `Foreclosure listing ${id} status toggled successfully`
+      message: `Foreclosure listing ${id} status toggled successfully`,
+      foreclosure: updatedForeclosure
     });
   } catch (error) {
     console.error('Error toggling foreclosure listing status:', error);
@@ -946,6 +1297,8 @@ router.post('/foreclosures/:id/notify', authenticateAdmin, async (req: AdminRequ
       id,
       address: '123 Main St',
       county: 'Queens',
+      neighborhood: null,
+      borough: null,
       auctionDate: new Date('2024-02-15'),
       startingBid: '450000',
       assessedValue: '500000',
@@ -957,8 +1310,42 @@ router.post('/foreclosures/:id/notify', authenticateAdmin, async (req: AdminRequ
       description: 'Beautiful family home in great neighborhood',
       docketNumber: '12345-67890',
       plaintiff: 'Bank of America',
+      defendant: null,
+      attorney: null,
+      attorneyPhone: null,
+      attorneyEmail: null,
+      caseNumber: null,
+      judgmentAmount: null,
+      interestRate: null,
+      lienPosition: null,
+      propertyCondition: null,
+      occupancyStatus: null,
+      redemptionPeriodEnd: null,
+      saleType: null,
+      openingBid: null,
+      minimumBid: null,
+      depositRequirement: null,
+      saleTerms: null,
+      propertyImages: null,
+      legalDescription: null,
+      parcelNumber: null,
+      zoningClassification: null,
+      taxDelinquencyAmount: null,
+      hoaDues: null,
+      utilities: null,
+      environmentalIssues: null,
+      titleStatus: null,
+      titleCompany: null,
+      titleCompanyPhone: null,
+      titleCompanyEmail: null,
+      inspectionReportUrl: null,
+      appraisalReportUrl: null,
+      propertyDocumentsUrl: null,
+      notes: null,
       status: 'upcoming',
       isActive: true,
+      featured: false,
+      priorityLevel: 0,
       createdAt: new Date('2023-01-15'),
       updatedAt: new Date('2023-01-15')
     };
@@ -1287,141 +1674,199 @@ router.post('/subscriptions/:id/cancel', authenticateAdmin, async (req: AdminReq
 // Get all blog posts
 router.get('/blogs', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
-    // Mock blog post data
-    const posts = [
-      {
-        id: '1',
-        title: 'Top 10 Wholesale Properties in Manhattan for Q4 2024',
-        excerpt: 'Discover the most profitable wholesale properties in Manhattan that are perfect for investors looking to flip or hold for rental income.',
-        content: 'Full content of the blog post...',
-        date: '2024-10-15',
-        author: { name: 'Alex Morgan', avatar: 'https://randomuser.me/api/portraits/men/32.jpg' },
-        category: 'Property Insights',
-        tags: ['Manhattan', 'Wholesale', 'Investing'],
+    const blogs = await db.getAllBlogs();
+    res.json({
+      success: true,
+      blogs: blogs.map(blog => ({
+        ...blog,
+        date: blog.createdAt,
         readTime: '5 min read',
-        image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
-        featured: true
-      },
-      {
-        id: '2',
-        title: 'Understanding NYC Foreclosure Laws: A Guide for Investors',
-        excerpt: 'Navigate the complex legal landscape of NYC foreclosures with our comprehensive guide to laws, regulations, and investor rights.',
-        content: 'Full content of the blog post...',
-        date: '2024-10-10',
-        author: { name: 'Jamie Chen', avatar: 'https://randomuser.me/api/portraits/women/44.jpg' },
-        category: 'Legal Insights',
-        tags: ['Foreclosure', 'Legal', 'NYC'],
-        readTime: '8 min read',
-        image: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80'
-      },
-      {
-        id: '3',
-        title: 'Maximizing ROI in Brooklyn Multi-Family Properties',
-        excerpt: 'Learn proven strategies to increase rental income and property value in Brooklyn\'s competitive multi-family market.',
-        content: 'Full content of the blog post...',
-        date: '2024-10-05',
-        author: { name: 'Maria Rodriguez', avatar: 'https://randomuser.me/api/portraits/women/68.jpg' },
-        category: 'Investment Strategies',
-        tags: ['Brooklyn', 'Multi-Family', 'ROI'],
-        readTime: '6 min read',
-        image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
-        featured: true
-      }
-    ];
-    
-    res.json({ success: true, posts });
+        image: blog.coverImage || '/placeholder-blog.jpg',
+        featured: blog.featured || false
+      }))
+    });
   } catch (error) {
-    console.error('Error fetching blog posts:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch blog posts' });
+    console.error('Error fetching blogs:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch blogs' 
+    });
   }
 });
 
-// Create new blog post
-router.post('/blogs', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+// Get blog by ID
+router.get('/blogs/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
-    const postData = req.body;
+    const { id } = req.params;
+    const blog = await db.getBlogById(id);
     
-    // Validate required fields
-    const requiredFields = ['title', 'excerpt', 'content', 'category', 'author'];
-    for (const field of requiredFields) {
-      if (!postData[field]) {
-        return res.status(400).json({ 
-          success: false, 
-          message: `${field} is required` 
-        });
-      }
+    if (!blog) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Blog not found' 
+      });
     }
     
-    // In a real implementation, this would save to the database
-    // For now, we'll return a mock response
-    const newPost = {
-      id: Date.now().toString(),
-      ...postData,
-      date: new Date().toISOString().split('T')[0],
-      readTime: postData.readTime || '5 min read',
-      featured: postData.featured || false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'Blog post created successfully',
-      post: newPost
+    res.json({
+      success: true,
+      post: {
+        ...blog,
+        date: blog.createdAt,
+        readTime: '5 min read',
+        image: blog.coverImage || '/placeholder-blog.jpg',
+        featured: blog.featured || false
+      }
     });
   } catch (error) {
-    console.error('Error creating blog post:', error);
+    console.error('Error fetching blog:', error);
     res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create blog post' 
+      success: false,
+      message: 'Failed to fetch blog' 
     });
   }
 });
 
-// Update blog post
+// Create new blog
+router.post('/blogs', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const blogData = req.body;
+    
+    // Validate required fields
+    if (!blogData.title || !blogData.content || !blogData.author) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Title, content, and author are required' 
+      });
+    }
+    
+    // Generate slug from title if not provided
+    if (!blogData.slug) {
+      blogData.slug = blogData.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+    }
+    
+    // Set published date if published
+    if (blogData.published && !blogData.publishedAt) {
+      blogData.publishedAt = new Date();
+    }
+    
+    const newBlog = await db.createBlog({
+      title: blogData.title,
+      excerpt: blogData.excerpt,
+      content: blogData.content,
+      slug: blogData.slug,
+      author: blogData.author,
+      tags: blogData.tags || [],
+      published: blogData.published || false,
+      publishedAt: blogData.publishedAt,
+      coverImage: blogData.image,
+      featured: blogData.featured || false,
+      viewCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    res.json({
+      success: true,
+      message: 'Blog created successfully',
+      post: {
+        ...newBlog,
+        date: newBlog.createdAt,
+        readTime: '5 min read',
+        image: newBlog.coverImage || '/placeholder-blog.jpg',
+        featured: newBlog.featured || false
+      }
+    });
+  } catch (error) {
+    console.error('Error creating blog:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to create blog' 
+    });
+  }
+});
+
+// Update blog
 router.put('/blogs/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
-    const postData = req.body;
+    const blogData = req.body;
     
-    // In a real implementation, this would update the database
-    // For now, we'll return a mock response
-    const updatedPost = {
-      id,
-      ...postData,
-      updatedAt: new Date().toISOString()
-    };
+    // Check if blog exists
+    const existingBlog = await db.getBlogById(id);
+    if (!existingBlog) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Blog not found' 
+      });
+    }
     
-    res.json({ 
-      success: true, 
-      message: `Blog post ${id} updated successfully`,
-      post: updatedPost
+    // Set published date if published and not already set
+    if (blogData.published && !existingBlog.publishedAt && !blogData.publishedAt) {
+      blogData.publishedAt = new Date();
+    }
+    
+    const updatedBlog = await db.updateBlog(id, {
+      title: blogData.title,
+      excerpt: blogData.excerpt,
+      content: blogData.content,
+      slug: blogData.slug,
+      author: blogData.author,
+      tags: blogData.tags,
+      published: blogData.published,
+      publishedAt: blogData.publishedAt,
+      coverImage: blogData.image,
+      featured: blogData.featured,
+      updatedAt: new Date()
+    });
+    
+    res.json({
+      success: true,
+      message: 'Blog updated successfully',
+      post: {
+        ...updatedBlog,
+        date: updatedBlog.updatedAt,
+        readTime: '5 min read',
+        image: updatedBlog.coverImage || '/placeholder-blog.jpg',
+        featured: updatedBlog.featured || false
+      }
     });
   } catch (error) {
-    console.error('Error updating blog post:', error);
+    console.error('Error updating blog:', error);
     res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update blog post' 
+      success: false,
+      message: 'Failed to update blog' 
     });
   }
 });
 
-// Delete blog post
+// Delete blog
 router.delete('/blogs/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
     
-    // In a real implementation, this would delete from the database
-    // For now, we'll return a mock response
-    res.json({ 
-      success: true, 
-      message: `Blog post ${id} deleted successfully`
+    // Check if blog exists
+    const existingBlog = await db.getBlogById(id);
+    if (!existingBlog) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Blog not found' 
+      });
+    }
+    
+    await db.deleteBlog(id);
+    
+    res.json({
+      success: true,
+      message: 'Blog deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting blog post:', error);
+    console.error('Error deleting blog:', error);
     res.status(500).json({ 
-      success: false, 
-      message: 'Failed to delete blog post' 
+      success: false,
+      message: 'Failed to delete blog' 
     });
   }
 });
