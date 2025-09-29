@@ -24,8 +24,33 @@ interface Property {
   price: string;
   estimatedProfit?: string;
   capRate?: string;
+  annualIncome?: string;
   images: string[];
   description: string;
+  status?: string;
+  condition?: string;
+  access?: string;
+  arv?: string;
+  yearBuilt?: number;
+  lotSize?: number;
+  parkingSpaces?: number;
+  heating?: string;
+  cooling?: string;
+  flooring?: string;
+  appliances?: string[];
+  utilities?: string[];
+  zoning?: string;
+  taxes?: string;
+  hoa?: string;
+  schools?: {
+    elementary?: string;
+    middle?: string;
+    high?: string;
+  };
+  walkScore?: number;
+  transitScore?: number;
+  bikeScore?: number;
+  createdAt?: string;
 }
 
 const PropertiesPage: React.FC = () => {

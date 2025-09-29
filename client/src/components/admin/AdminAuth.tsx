@@ -11,8 +11,8 @@ const AdminAuth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-    username: 'admin',
-    password: 'admin123'
+    username: '',
+    password: ''
   });
 
   // If user is already an admin, redirect to admin dashboard

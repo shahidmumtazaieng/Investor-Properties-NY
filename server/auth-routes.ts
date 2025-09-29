@@ -4,67 +4,33 @@ import { DatabaseRepository } from './database-repository.ts';
 const router = express.Router();
 const db = new DatabaseRepository();
 
-// Middleware to check session
+// Middleware to check JWT token
 interface AuthenticatedRequest extends express.Request {
   user?: any;
   userType?: 'common_investor' | 'institutional_investor' | 'seller' | 'admin';
 }
 
-// Authentication middleware
+// JWT Authentication middleware
 export const authenticateUser = async (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
   try {
-    const sessionToken = req.cookies?.session_token || req.headers.authorization?.replace('Bearer ', '');
+    // Get token from header or cookie
+    let token = req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
     
-    if (!sessionToken) {
+    if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    // Try different session types
-    let session = await db.getCommonInvestorSession(sessionToken);
-    let user = null;
-    let userType: 'common_investor' | 'institutional_investor' | 'seller' | 'admin' = 'common_investor';
-
-    if (session && session.expiresAt > new Date()) {
-      user = await db.getCommonInvestorById(session.investorId);
-      userType = 'common_investor';
-    } else {
-      // Try institutional investor session
-      const instSession = await db.getInstitutionalSession(sessionToken);
-      if (instSession && instSession.expiresAt > new Date()) {
-        // Check if this is an institutional investor or a partner/seller
-        const institutionalInvestor = await db.getInstitutionalInvestorById(instSession.investorId);
-        const partner = await db.getPartnerById(instSession.investorId);
-        
-        if (institutionalInvestor) {
-          user = institutionalInvestor;
-          userType = 'institutional_investor';
-        } else if (partner) {
-          user = partner;
-          userType = 'seller';
-        }
-      } else {
-        // Try admin session
-        const adminSession = await db.getAdminSession(sessionToken);
-        if (adminSession && adminSession.expiresAt > new Date()) {
-          user = await db.getAdminUserById(adminSession.adminId);
-          if (user) {
-            userType = 'admin';
-          }
-        }
-      }
+    // Verify token
+    const decoded = db.verifyJWTToken(token);
+    
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
     }
 
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid or expired session' });
-    }
-
-    // Check if user is active (except for admin users which may not have this property in mock data)
-    if (userType !== 'admin' && 'isActive' in user && !user.isActive) {
-      return res.status(401).json({ message: 'Account is not active' });
-    }
-
-    req.user = user;
-    req.userType = userType;
+    // Attach user info to request
+    req.user = decoded;
+    req.userType = decoded.userType;
+    
     next();
   } catch (error) {
     console.error('Authentication error:', error);
@@ -140,6 +106,9 @@ router.post('/investors/register', async (req: express.Request, res: express.Res
     };
 
     const investor = await db.createCommonInvestor(investorData);
+    
+    // Generate JWT token
+    const token = db.generateJWTToken(investor, 'common_investor');
 
     res.status(201).json({
       success: true,
@@ -152,6 +121,7 @@ router.post('/investors/register', async (req: express.Request, res: express.Res
         lastName: investor.lastName,
         userType: 'common_investor'
       },
+      token: token,
       requiresVerification: true
     });
 
@@ -194,19 +164,8 @@ router.post('/investors/login', async (req: express.Request, res: express.Respon
       });
     }
 
-    // Create session
-    const sessionToken = db.generateSessionToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    
-    await db.createCommonInvestorSession(investor.id, sessionToken, expiresAt);
-
-    // Set cookie
-    res.cookie('session_token', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-    });
+    // Generate JWT token
+    const token = db.generateJWTToken(investor, 'common_investor');
 
     // Build user object safely
     const userObject: any = {
@@ -227,7 +186,8 @@ router.post('/investors/login', async (req: express.Request, res: express.Respon
     res.json({
       success: true,
       message: 'Login successful',
-      user: userObject
+      user: userObject,
+      token: token
     });
 
   } catch (error) {
@@ -241,13 +201,58 @@ router.post('/investors/login', async (req: express.Request, res: express.Respon
 
 // ==================== INSTITUTIONAL INVESTOR ROUTES ====================
 
-// Institutional Investor Registration
-router.post('/institutional/register', async (req: express.Request, res: express.Response) => {
+// Add multer for file uploads
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Configure multer for file uploads
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Create uploads directory if it doesn't exist
+import fs from 'fs';
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Accept images and PDFs only
+    if (file.mimetype === 'image/jpeg' || 
+        file.mimetype === 'image/png' || 
+        file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, and PDF files are allowed'));
+    }
+  }
+});
+
+// Institutional Investor Registration with file upload support
+router.post('/institutional/register', upload.single('businessCard'), async (req: express.Request, res: express.Response) => {
   try {
     const { 
       username, password, email, firstName, lastName, phone, 
-      companyName, contactPerson, address, investmentFocus, 
-      minimumInvestment, maximumInvestment, subscriptionPlan 
+      companyName, contactPerson, jobTitle, workPhone, personalPhone,
+      subscriptionPlan 
     } = req.body;
     
     // Validation
@@ -290,19 +295,16 @@ router.post('/institutional/register', async (req: express.Request, res: express
     const emailToken = db.generateEmailVerificationToken();
     const phoneCode = db.generatePhoneVerificationCode();
 
-    const investorData = {
+    // Build investor data
+    const investorData: any = {
       username,
       password: hashedPassword,
       email,
-      firstName,
-      lastName,
-      phone: phone || null,
-      companyName,
-      contactPerson: contactPerson || null,
-      address: address || null,
-      investmentFocus: investmentFocus || null,
-      minimumInvestment: minimumInvestment || null,
-      maximumInvestment: maximumInvestment || null,
+      personName: firstName,
+      institutionName: companyName,
+      jobTitle: jobTitle || '',
+      workPhone: workPhone || phone || '',
+      personalPhone: personalPhone || '',
       isActive: true,
       emailVerified: false,
       emailVerificationToken: emailToken,
@@ -312,24 +314,35 @@ router.post('/institutional/register', async (req: express.Request, res: express
       phoneVerificationSentAt: new Date(),
       hasForeclosureSubscription: false,
       subscriptionPlan: subscriptionPlan || null,
+      status: 'pending', // Pending approval
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
+    // Add business card URL if file was uploaded
+    if (req.file) {
+      investorData.businessCardUrl = `/uploads/${req.file.filename}`;
+    }
+
     const investor = await db.createInstitutionalInvestor(investorData);
+    
+    // Generate JWT token
+    const token = db.generateJWTToken(investor, 'institutional_investor');
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful. Please check your email for verification.',
+      message: 'Registration successful. Please check your email for verification. Your account is pending approval and requires business card verification.',
       user: {
         id: investor.id,
         username: investor.username,
         email: investor.email,
-        firstName: investor.firstName,
-        lastName: investor.lastName,
-        companyName: investor.companyName,
-        userType: 'institutional_investor'
+        firstName: investor.personName,
+        lastName: investor.personName,
+        institutionName: investor.institutionName,
+        userType: 'institutional_investor',
+        status: investor.status
       },
+      token: token,
       requiresVerification: true
     });
 
@@ -372,40 +385,37 @@ router.post('/institutional/login', async (req: express.Request, res: express.Re
       });
     }
 
-    // Create session
-    const sessionToken = db.generateSessionToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    
-    await db.createInstitutionalSession(investor.id, sessionToken, expiresAt);
-
-    // Set cookie
-    res.cookie('session_token', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-    });
+    // Generate JWT token
+    const token = db.generateJWTToken(investor, 'institutional_investor');
 
     // Build user object safely
     const userObject: any = {
       id: investor.id,
-      username: investor.username,
+      username: investor.username || investor.email,
       email: investor.email,
-      userType: 'institutional_investor'
+      userType: 'institutional_investor',
+      firstName: investor.personName || '',
+      lastName: investor.personName || '',
+      institutionName: investor.institutionName || '',
+      jobTitle: investor.jobTitle || '',
+      workPhone: investor.workPhone || '',
+      personalPhone: investor.personalPhone || '',
+      hasForeclosureSubscription: investor.hasForeclosureSubscription || false,
+      status: investor.status || 'pending'
     };
 
-    // Safely add institutional investor specific properties
+    // Add business card URL if it exists
     // @ts-ignore
-    userObject.firstName = investor.personName || '';
-    // @ts-ignore
-    userObject.lastName = investor.personName || '';
-    // @ts-ignore
-    userObject.companyName = investor.institutionName || '';
+    if (investor.businessCardUrl) {
+      // @ts-ignore
+      userObject.businessCardUrl = investor.businessCardUrl;
+    }
 
     res.json({
       success: true,
       message: 'Login successful',
-      user: userObject
+      user: userObject,
+      token: token
     });
 
   } catch (error) {
@@ -413,6 +423,110 @@ router.post('/institutional/login', async (req: express.Request, res: express.Re
     res.status(500).json({ 
       success: false,
       message: 'Login failed' 
+    });
+  }
+});
+
+// ==================== INSTITUTIONAL INVESTOR FORECLOSURE BIDS ====================
+
+// Submit foreclosure bid (institutional investors)
+router.post('/institutional/foreclosure-bids', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is an institutional investor
+    if (req.userType !== 'institutional_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only institutional investors can submit foreclosure bids' 
+      });
+    }
+
+    const { 
+      foreclosureId, 
+      bidAmount, 
+      maxBidAmount, 
+      investmentExperience, 
+      preferredContactMethod, 
+      timeframe, 
+      additionalRequirements 
+    } = req.body;
+    
+    // Validation
+    if (!foreclosureId || !bidAmount || !maxBidAmount || !investmentExperience || !preferredContactMethod || !timeframe) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    // Get foreclosure listing details
+    const foreclosure = await db.getForeclosureListingById(foreclosureId);
+    if (!foreclosure) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Foreclosure listing not found' 
+      });
+    }
+
+    // Create bid tracking record
+    const bidTrackingData = {
+      investorId: req.user.id,
+      propertyId: foreclosureId,
+      propertyAddress: foreclosure.address,
+      bidAmount: bidAmount.toString(),
+      auctionDate: foreclosure.auctionDate,
+      status: 'submitted',
+      notes: `Bid submitted: $${bidAmount} (max: $${maxBidAmount})
+Experience: ${investmentExperience}
+Contact: ${preferredContactMethod}
+Timeframe: ${timeframe}
+Additional: ${additionalRequirements || 'None'}`
+    };
+
+    const bidTracking = await db.createInstitutionalBidTracking(bidTrackingData);
+
+    // In a real implementation, you would also:
+    // 1. Send notification to admin
+    // 2. Send confirmation to investor
+    // 3. Store bid details in a separate table for admin review
+
+    res.status(201).json({
+      success: true,
+      message: 'Foreclosure bid submitted successfully',
+      bidId: bidTracking.id
+    });
+
+  } catch (error) {
+    console.error('Error submitting foreclosure bid:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit foreclosure bid' 
+    });
+  }
+});
+
+// Get institutional investor's foreclosure bids
+router.get('/institutional/foreclosure-bids', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is an institutional investor
+    if (req.userType !== 'institutional_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only institutional investors can view foreclosure bids' 
+      });
+    }
+
+    const bids = await db.getInstitutionalBidTrackingByInvestorId(req.user.id);
+
+    res.json({
+      success: true,
+      bids: bids
+    });
+
+  } catch (error) {
+    console.error('Error fetching foreclosure bids:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch foreclosure bids' 
     });
   }
 });
@@ -485,6 +599,9 @@ router.post('/partners/register', async (req: express.Request, res: express.Resp
     };
 
     const partner = await db.createPartner(partnerData);
+    
+    // Generate JWT token
+    const token = db.generateJWTToken(partner, 'seller');
 
     res.status(201).json({
       success: true,
@@ -498,6 +615,7 @@ router.post('/partners/register', async (req: express.Request, res: express.Resp
         company: partner.company,
         userType: 'seller'
       },
+      token: token,
       requiresApproval: true
     });
 
@@ -547,21 +665,8 @@ router.post('/partners/login', async (req: express.Request, res: express.Respons
       });
     }
 
-    // Create session
-    const sessionToken = db.generateSessionToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    
-    // For now, we'll use the institutional session table for partners
-    // In a real implementation, we would have a separate partner sessions table
-    await db.createInstitutionalSession(partner.id, sessionToken, expiresAt);
-
-    // Set cookie
-    res.cookie('session_token', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-    });
+    // Generate JWT token
+    const token = db.generateJWTToken(partner, 'seller');
 
     res.json({
       success: true,
@@ -574,7 +679,8 @@ router.post('/partners/login', async (req: express.Request, res: express.Respons
         lastName: partner.lastName,
         company: partner.company,
         userType: 'seller'
-      }
+      },
+      token: token
     });
 
   } catch (error) {
@@ -618,19 +724,8 @@ router.post('/admin/login', async (req: express.Request, res: express.Response) 
       });
     }
 
-    // Create session
-    const sessionToken = db.generateSessionToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    
-    await db.createAdminSession(admin.id, sessionToken, expiresAt);
-
-    // Set cookie
-    res.cookie('session_token', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-    });
+    // Generate JWT token
+    const token = db.generateJWTToken(admin, 'admin');
 
     res.json({
       success: true,
@@ -641,7 +736,8 @@ router.post('/admin/login', async (req: express.Request, res: express.Response) 
         firstName: admin.firstName,
         lastName: admin.lastName,
         userType: 'admin'
-      }
+      },
+      token: token
     });
 
   } catch (error) {
@@ -800,26 +896,388 @@ router.post('/reset-password', async (req: express.Request, res: express.Respons
   }
 });
 
+// ==================== COMMON INVESTOR FORECLOSURE BIDS ====================
+
+// Submit foreclosure bid (common investors)
+router.post('/investor/foreclosure-bids', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is a common investor
+    if (req.userType !== 'common_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only common investors can submit foreclosure bids' 
+      });
+    }
+
+    const { 
+      foreclosureId, 
+      bidAmount, 
+      maxBidAmount, 
+      investmentExperience, 
+      preferredContactMethod, 
+      timeframe, 
+      additionalRequirements 
+    } = req.body;
+    
+    // Validation
+    if (!foreclosureId || !bidAmount || !maxBidAmount || !investmentExperience || !preferredContactMethod || !timeframe) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    // Get foreclosure listing details
+    const foreclosure = await db.getForeclosureListingById(foreclosureId);
+    if (!foreclosure) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Foreclosure listing not found' 
+      });
+    }
+
+    // For common investors, we'll store the bid in the bid_service_requests table
+    const bidRequestData = {
+      leadId: req.user.id, // Using user ID as lead ID for now
+      foreclosureListingId: foreclosureId,
+      name: `${req.user.firstName} ${req.user.lastName}`,
+      email: req.user.email,
+      phone: req.user.phone || '',
+      investmentBudget: '', // Not applicable for foreclosure bids
+      maxBidAmount: maxBidAmount.toString(),
+      investmentExperience: investmentExperience,
+      preferredContactMethod: preferredContactMethod,
+      timeframe: timeframe,
+      additionalRequirements: additionalRequirements || '',
+      status: 'pending'
+    };
+
+    // Create bid request record
+    const result = await db.createBidServiceRequest(bidRequestData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Foreclosure bid request submitted successfully',
+      requestId: result.id
+    });
+
+  } catch (error) {
+    console.error('Error submitting foreclosure bid request:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit foreclosure bid request' 
+    });
+  }
+});
+
+// Submit property offer (common investors)
+router.post('/investor/offers', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is a common investor
+    if (req.userType !== 'common_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only common investors can submit property offers' 
+      });
+    }
+
+    const { 
+      propertyId, 
+      offerAmount, 
+      earnestMoney, 
+      closingDate, 
+      financingType, 
+      contingencies, 
+      additionalTerms, 
+      message 
+    } = req.body;
+    
+    // Validation
+    if (!propertyId || !offerAmount || !earnestMoney || !closingDate || !financingType) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    // Get property details
+    const property = await db.getPropertyById(propertyId);
+    if (!property) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Property not found' 
+      });
+    }
+
+    // Create offer record
+    const offerData = {
+      propertyId: propertyId,
+      commonInvestorId: req.user.id,
+      offerAmount: offerAmount,
+      downPayment: earnestMoney,
+      closingDate: closingDate,
+      financingType: financingType,
+      contingencies: contingencies ? contingencies.join(',') : '',
+      additionalTerms: additionalTerms || '',
+      terms: message || '',
+      status: 'pending'
+    };
+
+    // Create offer record
+    const result = await db.createOffer(offerData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Property offer submitted successfully',
+      offerId: result.id
+    });
+
+  } catch (error) {
+    console.error('Error submitting property offer:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit property offer' 
+    });
+  }
+});
+
+// Get common investor's offers
+router.get('/investor/offers', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is a common investor
+    if (req.userType !== 'common_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only common investors can view their offers' 
+      });
+    }
+
+    const offers = await db.getOffersByInvestorId(req.user.id, 'common');
+
+    res.json({
+      success: true,
+      offers: offers
+    });
+
+  } catch (error) {
+    console.error('Error fetching property offers:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch property offers' 
+    });
+  }
+});
+
+// Get specific offer by ID (common investors)
+router.get('/investor/offers/:id', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is a common investor
+    if (req.userType !== 'common_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only common investors can view their offers' 
+      });
+    }
+
+    const { id } = req.params;
+    
+    // Get the offer
+    const offer = await db.getOfferById(id);
+    
+    // Verify the offer belongs to this investor
+    if (!offer || offer.commonInvestorId !== req.user.id) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Offer not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      offer: offer
+    });
+
+  } catch (error) {
+    console.error('Error fetching property offer:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch property offer' 
+    });
+  }
+});
+
+// Get common investor's foreclosure bids
+router.get('/investor/foreclosure-bids', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is a common investor
+    if (req.userType !== 'common_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only common investors can view foreclosure bids' 
+      });
+    }
+
+    const bids = await db.getBidServiceRequestsByLeadId(req.user.id);
+
+    res.json({
+      success: true,
+      bids: bids
+    });
+
+  } catch (error) {
+    console.error('Error fetching foreclosure bid requests:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch foreclosure bid requests' 
+    });
+  }
+});
+
+// ==================== INSTITUTIONAL INVESTOR PROPERTY OFFERS ====================
+
+// Submit property offer (institutional investors)
+router.post('/institutional/offers', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is an institutional investor
+    if (req.userType !== 'institutional_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only institutional investors can submit property offers' 
+      });
+    }
+
+    const { 
+      propertyId, 
+      offerAmount, 
+      earnestMoney, 
+      closingDate, 
+      financingType, 
+      contingencies, 
+      additionalTerms, 
+      message 
+    } = req.body;
+    
+    // Validation
+    if (!propertyId || !offerAmount || !earnestMoney || !closingDate || !financingType) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    // Get property details
+    const property = await db.getPropertyById(propertyId);
+    if (!property) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Property not found' 
+      });
+    }
+
+    // Create offer record
+    const offerData = {
+      propertyId: propertyId,
+      institutionalInvestorId: req.user.id,
+      offerAmount: offerAmount,
+      downPayment: earnestMoney,
+      closingDate: closingDate,
+      financingType: financingType,
+      contingencies: contingencies ? contingencies.join(',') : '',
+      additionalTerms: additionalTerms || '',
+      terms: message || '',
+      status: 'pending'
+    };
+
+    // Create offer record
+    const result = await db.createOffer(offerData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Property offer submitted successfully',
+      offerId: result.id
+    });
+
+  } catch (error) {
+    console.error('Error submitting property offer:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit property offer' 
+    });
+  }
+});
+
+// Get institutional investor's offers
+router.get('/institutional/offers', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is an institutional investor
+    if (req.userType !== 'institutional_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only institutional investors can view their offers' 
+      });
+    }
+
+    const offers = await db.getOffersByInvestorId(req.user.id, 'institutional');
+
+    res.json({
+      success: true,
+      offers: offers
+    });
+
+  } catch (error) {
+    console.error('Error fetching property offers:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch property offers' 
+    });
+  }
+});
+
+// Get specific offer by ID (institutional investors)
+router.get('/institutional/offers/:id', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is an institutional investor
+    if (req.userType !== 'institutional_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only institutional investors can view their offers' 
+      });
+    }
+
+    const { id } = req.params;
+    
+    // Get the offer
+    const offer = await db.getOfferById(id);
+    
+    // Verify the offer belongs to this investor
+    if (!offer || offer.institutionalInvestorId !== req.user.id) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Offer not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      offer: offer
+    });
+
+  } catch (error) {
+    console.error('Error fetching property offer:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch property offer' 
+    });
+  }
+});
+
 // ==================== SHARED ROUTES ====================
 
 // Logout route (works for all user types)
 router.post('/logout', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
-    const sessionToken = req.cookies?.session_token || req.headers.authorization?.replace('Bearer ', '');
-    
-    if (sessionToken) {
-      // Delete session from database based on user type
-      if (req.userType === 'institutional_investor' || req.userType === 'seller') {
-        await db.deleteInstitutionalSession(sessionToken);
-      } else if (req.userType === 'admin') {
-        await db.deleteAdminSession(sessionToken);
-      } else {
-        await db.deleteCommonInvestorSession(sessionToken);
-      }
-    }
-
-    // Clear cookie
-    res.clearCookie('session_token');
+    // With JWT, logout is simply clearing the token on the client side
+    // We don't need to delete sessions from the database
     
     res.json({
       success: true,
@@ -838,9 +1296,10 @@ router.post('/logout', authenticateUser, async (req: AuthenticatedRequest, res: 
 // Get current user status
 router.get('/status', async (req: express.Request, res: express.Response) => {
   try {
-    const sessionToken = req.cookies?.session_token || req.headers.authorization?.replace('Bearer ', '');
+    // Get token from header or cookie
+    let token = req.headers.authorization?.replace('Bearer ', '') || req.cookies?.token;
     
-    if (!sessionToken) {
+    if (!token) {
       return res.json({
         success: true,
         authenticated: false,
@@ -848,33 +1307,10 @@ router.get('/status', async (req: express.Request, res: express.Response) => {
       });
     }
 
-    // Try different session types
-    let session = await db.getCommonInvestorSession(sessionToken);
-    let user = null;
-    let userType: 'common_investor' | 'institutional_investor' | 'partner' | 'seller' | 'admin' = 'common_investor';
-
-    if (session && session.expiresAt > new Date()) {
-      user = await db.getCommonInvestorById(session.investorId);
-      userType = 'common_investor';
-    } else {
-      // Try institutional investor session
-      const instSession = await db.getInstitutionalSession(sessionToken);
-      if (instSession && instSession.expiresAt > new Date()) {
-        // Check if this is an institutional investor or a partner/seller
-        const institutionalInvestor = await db.getInstitutionalInvestorById(instSession.investorId);
-        const partner = await db.getPartnerById(instSession.investorId);
-        
-        if (institutionalInvestor) {
-          user = institutionalInvestor;
-          userType = 'institutional_investor';
-        } else if (partner) {
-          user = partner;
-          userType = 'seller';
-        }
-      }
-    }
-
-    if (!user) {
+    // Verify token
+    const decoded = db.verifyJWTToken(token);
+    
+    if (!decoded) {
       return res.json({
         success: true,
         authenticated: false,
@@ -884,48 +1320,30 @@ router.get('/status', async (req: express.Request, res: express.Response) => {
 
     // Build user object with consistent structure
     const userObject: any = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      userType: userType
+      id: decoded.id,
+      username: decoded.username,
+      email: decoded.email,
+      userType: decoded.userType
     };
 
-    // Add properties based on user type - using @ts-ignore to bypass TypeScript union type issues
-    if (userType === 'institutional_investor') {
+    // Add properties based on user type
+    if (decoded.userType === 'institutional_investor') {
       // Institutional investor properties
-      // @ts-ignore
-      userObject.firstName = user.personName || '';
-      // @ts-ignore
-      userObject.lastName = user.personName || '';
-      // @ts-ignore
-      userObject.companyName = user.institutionName || '';
-    } else if (userType === 'seller') {
+      userObject.firstName = decoded.firstName || '';
+      userObject.lastName = decoded.lastName || '';
+      userObject.companyName = decoded.companyName || '';
+    } else if (decoded.userType === 'seller') {
       // Partner/Seller properties
-      // @ts-ignore
-      userObject.firstName = user.firstName || '';
-      // @ts-ignore
-      userObject.lastName = user.lastName || '';
-      // @ts-ignore
-      userObject.company = user.company || '';
-      // @ts-ignore
-      userObject.approvalStatus = user.approvalStatus || 'pending';
+      userObject.firstName = decoded.firstName || '';
+      userObject.lastName = decoded.lastName || '';
+      userObject.company = decoded.company || '';
+      userObject.approvalStatus = decoded.approvalStatus || 'pending';
     } else {
       // Common investor properties
-      // @ts-ignore
-      userObject.firstName = user.firstName || '';
-      // @ts-ignore
-      userObject.lastName = user.lastName || '';
-      // @ts-ignore
-      userObject.hasForeclosureSubscription = user.hasForeclosureSubscription || false;
-      // @ts-ignore
-      userObject.subscriptionPlan = user.subscriptionPlan || null;
-    }
-
-    // Add isActive if it exists
-    // @ts-ignore
-    if ('isActive' in user) {
-      // @ts-ignore
-      userObject.isActive = user.isActive;
+      userObject.firstName = decoded.firstName || '';
+      userObject.lastName = decoded.lastName || '';
+      userObject.hasForeclosureSubscription = decoded.hasForeclosureSubscription || false;
+      userObject.subscriptionPlan = decoded.subscriptionPlan || null;
     }
 
     res.json({

@@ -6,14 +6,15 @@ import {
   CommonInvestor,
   InsertCommonInvestor,
   InsertOffer,
-  insertOfferSchema
+  insertOfferSchema,
+  InstitutionalInvestor
 } from "../shared/schema.js";
 import { SaaSStorageExtension } from "./saas-storage.js";
 import { DatabaseRepository } from "./database-repository.js";
 
 // Extended Request interface for authenticated users
 interface AuthenticatedRequest extends Request {
-  user?: CommonInvestor;
+  user?: CommonInvestor | any;
   userType?: 'common_investor' | 'institutional_investor' | 'partner';
 }
 
@@ -372,6 +373,248 @@ export function registerSaaSRoutes(app: Express) {
     } catch (error) {
       console.error("Error fetching offers:", error);
       res.status(500).json({ message: "Failed to fetch offers" });
+    }
+  });
+
+  // ==================== INSTITUTIONAL INVESTOR AUTHENTICATION ====================
+  
+  // Authentication middleware for institutional investors
+  async function authenticateInstitutionalInvestor(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const sessionToken = req.cookies?.institutional_investor_session || req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const session = await db.getInstitutionalSession(sessionToken);
+      if (!session || session.expiresAt < new Date()) {
+        return res.status(401).json({ message: "Session expired" });
+      }
+
+      const investor = await db.getInstitutionalInvestorById(session.investorId);
+      if (!investor || !investor.isActive) {
+        return res.status(401).json({ message: "Account not active" });
+      }
+
+      req.user = investor as any;
+      req.userType = 'institutional_investor';
+      next();
+    } catch (error) {
+      console.error("Institutional investor authentication error:", error);
+      res.status(500).json({ message: "Authentication error" });
+    }
+  }
+
+  // Institutional Investor Login
+  app.post("/api/institutional/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password required" });
+      }
+
+      const investor = await db.authenticateInstitutionalInvestor(username, password);
+      if (!investor) return res.status(401).json({ message: "Invalid credentials" });
+      
+      if (!investor) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      if (!investor.isActive) {
+        return res.status(401).json({ message: "Account is not active" });
+      }
+
+      // Create session
+      const sessionToken = generateSessionToken();
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      
+      await db.createInstitutionalSession(investor.id, sessionToken, expiresAt);
+
+      // Set cookie
+      res.cookie("institutional_investor_session", sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      });
+
+      res.json({
+        success: true,
+        message: "Login successful",
+        user: {
+          id: investor.id,
+          username: investor.username || investor.email,
+          personName: investor.personName,
+          institutionName: investor.institutionName,
+          email: investor.email,
+          jobTitle: investor.jobTitle,
+          workPhone: investor.workPhone,
+          personalPhone: investor.personalPhone,
+          hasForeclosureSubscription: investor.hasForeclosureSubscription,
+          status: investor.status,
+          // Include business card URL if it exists
+          ...(investor.businessCardUrl && { businessCardUrl: investor.businessCardUrl })
+        },
+        sessionToken,
+        expiresAt
+      });
+
+    } catch (error) {
+      console.error("Institutional investor login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // Institutional Investor Logout
+  app.post("/api/institutional/logout", async (req, res) => {
+    try {
+      const sessionToken = req.cookies?.institutional_investor_session;
+      
+      if (sessionToken) {
+        await db.deleteInstitutionalSession(sessionToken);
+      }
+      
+      res.clearCookie("institutional_investor_session");
+      res.json({ success: true, message: "Logged out successfully" });
+      
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  // ==================== FORECLOSURE SUBSCRIPTION REQUESTS ====================
+
+  // Request foreclosure subscription (Protected)
+  app.post("/api/investors/foreclosure-subscription-request", authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const investor = req.user as CommonInvestor;
+      const requestData = req.body;
+      
+      // Create subscription request
+      const request = await db.createForeclosureSubscriptionRequest(investor.id, requestData);
+      
+      res.status(201).json({ 
+        message: "Foreclosure subscription request submitted successfully", 
+        request 
+      });
+      
+    } catch (error) {
+      console.error("Error creating foreclosure subscription request:", error);
+      res.status(500).json({ message: "Failed to submit foreclosure subscription request" });
+    }
+  });
+
+  // Get investor's foreclosure subscription status
+  app.get("/api/investors/foreclosure-subscription-status", authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const investor = req.user as CommonInvestor;
+      
+      // Check if investor has active foreclosure subscription
+      const hasSubscription = investor.hasForeclosureSubscription;
+      const expiryDate = investor.foreclosureSubscriptionExpiry;
+      
+      res.json({ 
+        hasSubscription,
+        expiryDate,
+        subscriptionPlan: investor.subscriptionPlan
+      });
+      
+    } catch (error) {
+      console.error("Error fetching foreclosure subscription status:", error);
+      res.status(500).json({ message: "Failed to fetch foreclosure subscription status" });
+    }
+  });
+
+  // ==================== FORECLOSURE BIDDING ====================
+
+  // Create foreclosure bid (Protected - requires subscription for common investors)
+  app.post("/api/investors/foreclosure-bids", authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const investor = req.user as CommonInvestor;
+      
+      // Check if investor has foreclosure subscription
+      if (!investor.hasForeclosureSubscription || 
+          (investor.foreclosureSubscriptionExpiry && investor.foreclosureSubscriptionExpiry < new Date())) {
+        return res.status(403).json({ 
+          message: "Foreclosure subscription required to place bids",
+          subscriptionRequired: true 
+        });
+      }
+      
+      const bidData = {
+        ...req.body,
+        investorId: investor.id
+      };
+      
+      const bid = await db.createForeclosureBid(bidData);
+      res.status(201).json(bid);
+      
+    } catch (error) {
+      console.error("Error creating foreclosure bid:", error);
+      res.status(500).json({ message: "Failed to create foreclosure bid" });
+    }
+  });
+
+  // Get investor's foreclosure bids (Protected)
+  app.get("/api/investors/foreclosure-bids", authenticateCommonInvestor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const investor = req.user as CommonInvestor;
+      const bids = await db.getForeclosureBidsByInvestorId(investor.id);
+      res.json(bids);
+
+    } catch (error) {
+      console.error("Error fetching foreclosure bids:", error);
+      res.status(500).json({ message: "Failed to fetch foreclosure bids" });
+    }
+  });
+
+  // ==================== INSTITUTIONAL INVESTOR FORECLOSURE LISTINGS ====================
+
+  // Get Full Foreclosures (Protected - no subscription required for institutional investors)
+  app.get("/api/institutional/foreclosures", authenticateInstitutionalInvestor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const foreclosures = await db.getAllForeclosureListings();
+      res.json(foreclosures);
+      
+    } catch (error) {
+      console.error("Error fetching foreclosures:", error);
+      res.status(500).json({ message: "Failed to fetch foreclosures" });
+    }
+  });
+
+  // ==================== INSTITUTIONAL INVESTOR FORECLOSURE BIDDING ====================
+
+  // Create foreclosure bid (Protected - no subscription required for institutional investors)
+  app.post("/api/institutional/foreclosure-bids", authenticateInstitutionalInvestor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const investor = req.user as any;
+      
+      const bidData = {
+        ...req.body,
+        investorId: investor.id
+      };
+      
+      const bid = await db.createForeclosureBid(bidData);
+      res.status(201).json(bid);
+      
+    } catch (error) {
+      console.error("Error creating foreclosure bid:", error);
+      res.status(500).json({ message: "Failed to create foreclosure bid" });
+    }
+  });
+
+  // Get institutional investor's foreclosure bids (Protected)
+  app.get("/api/institutional/foreclosure-bids", authenticateInstitutionalInvestor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const investor = req.user as any;
+      const bids = await db.getForeclosureBidsByInvestorId(investor.id);
+      res.json(bids);
+
+    } catch (error) {
+      console.error("Error fetching foreclosure bids:", error);
+      res.status(500).json({ message: "Failed to fetch foreclosure bids" });
     }
   });
 

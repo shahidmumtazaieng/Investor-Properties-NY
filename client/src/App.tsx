@@ -8,6 +8,7 @@ import PropertiesPage from './components/PropertiesPage';
 import ForeclosurePage from './components/ForeclosurePage';
 import AboutPage from './components/AboutPage';
 import BlogPage from './components/BlogPage';
+import BlogDetailPage from './components/BlogDetailPage';
 import ContactPage from './components/ContactPage';
 import FaqPage from './components/FaqPage';
 import InvestorAuth from './components/auth/InvestorAuth';
@@ -83,6 +84,7 @@ const AppContent: React.FC = () => {
             <Route path="/properties" element={<PropertiesPage />} />
             <Route path="/foreclosures" element={<ForeclosurePage />} />
             <Route path="/blog" element={<BlogPage />} />
+            <Route path="/blog/:slug" element={<BlogDetailPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/faq" element={<FaqPage />} />
 

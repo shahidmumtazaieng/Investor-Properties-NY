@@ -34,7 +34,7 @@ const preferredAreas = [
 const InvestorAuth: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, register } = useAuth();
+  const { login, register: authRegister } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [investorType, setInvestorType] = useState<InvestorType>('common');
   const [loading, setLoading] = useState(false);
@@ -249,68 +249,159 @@ const InvestorAuth: React.FC = () => {
     try {
       const userType = investorType === 'common' ? 'common_investor' : 'institutional_investor';
       
-      // Prepare request data
-      const requestData: any = {
-        username: formData.username,
-        password: formData.password,
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        userType,
-        ...(planFromUrl && { subscriptionPlan: planFromUrl })
-      };
-
-      // Add common investor data
-      if (investorType === 'common' && authMode === 'signup') {
-        requestData.investmentExperience = commonInvestorData.investmentExperience;
-        requestData.investmentBudget = commonInvestorData.investmentBudget;
-        requestData.preferredAreas = commonInvestorData.preferredAreas;
-      }
-
-      // Add institutional investor data
-      if (investorType === 'institutional' && authMode === 'signup') {
-        requestData.institutionalData = {
-          fullName: institutionalInvestorData.fullName,
-          jobTitle: institutionalInvestorData.jobTitle,
-          workPhone: institutionalInvestorData.workPhone,
-          personalPhone: institutionalInvestorData.personalPhone,
-          institutionName: institutionalInvestorData.institutionName,
-          institutionalEmail: institutionalInvestorData.institutionalEmail
-          // Note: Business card would need to be handled separately in a real implementation
-        };
-      }
-
-      const result = await register(requestData);
-
-      if (result.success) {
-        setSuccess(result.message || 'Registration successful! Please check your email for verification.');
-        // Clear form
-        setFormData({
-          username: '',
-          password: '',
-          confirmPassword: '',
-          email: '',
-          firstName: '',
-          lastName: '',
-          phone: '',
+      // For institutional investors with business card, we need to use FormData
+      if (investorType === 'institutional' && institutionalInvestorData.businessCard) {
+        const formDataObj = new FormData();
+        
+        // Add all the form data
+        formDataObj.append('username', formData.username);
+        formDataObj.append('password', formData.password);
+        formDataObj.append('email', institutionalInvestorData.institutionalEmail);
+        formDataObj.append('firstName', institutionalInvestorData.fullName);
+        formDataObj.append('lastName', institutionalInvestorData.fullName);
+        formDataObj.append('phone', institutionalInvestorData.workPhone);
+        formDataObj.append('userType', userType);
+        formDataObj.append('companyName', institutionalInvestorData.institutionName);
+        formDataObj.append('contactPerson', institutionalInvestorData.fullName);
+        formDataObj.append('jobTitle', institutionalInvestorData.jobTitle);
+        formDataObj.append('workPhone', institutionalInvestorData.workPhone);
+        formDataObj.append('personalPhone', institutionalInvestorData.personalPhone);
+        
+        // Add the business card file
+        formDataObj.append('businessCard', institutionalInvestorData.businessCard);
+        
+        // Add plan if available
+        if (planFromUrl) {
+          formDataObj.append('subscriptionPlan', planFromUrl);
+        }
+        
+        const response = await fetch('/api/auth/institutional/register', {
+          method: 'POST',
+          body: formDataObj,
         });
-        setCommonInvestorData({
-          investmentExperience: '',
-          investmentBudget: '',
-          preferredAreas: []
-        });
-        setInstitutionalInvestorData({
-          fullName: '',
-          jobTitle: '',
-          workPhone: '',
-          personalPhone: '',
-          institutionName: '',
-          institutionalEmail: '',
-          businessCard: null
-        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.token) {
+          // Store token in localStorage
+          localStorage.setItem('token', data.token);
+          // Update user context
+          const result = await authRegister({
+            username: formData.username,
+            password: formData.password,
+            email: institutionalInvestorData.institutionalEmail,
+            firstName: institutionalInvestorData.fullName,
+            lastName: institutionalInvestorData.fullName,
+            phone: institutionalInvestorData.workPhone,
+            userType: 'institutional_investor'
+          });
+          
+          if (result.success) {
+            setSuccess(data.message || 'Registration successful! Please check your email for verification.');
+            // Clear form
+            setFormData({
+              username: '',
+              password: '',
+              confirmPassword: '',
+              email: '',
+              firstName: '',
+              lastName: '',
+              phone: '',
+            });
+            setCommonInvestorData({
+              investmentExperience: '',
+              investmentBudget: '',
+              preferredAreas: []
+            });
+            setInstitutionalInvestorData({
+              fullName: '',
+              jobTitle: '',
+              workPhone: '',
+              personalPhone: '',
+              institutionName: '',
+              institutionalEmail: '',
+              businessCard: null
+            });
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+              navigate('/dashboard/institutional');
+            }, 1500);
+          } else {
+            setError(result.message || 'Registration failed');
+          }
+        } else {
+          setError(data.message || 'Registration failed');
+        }
       } else {
-        setError(result.message || 'Registration failed');
+        // Regular registration for common investors or institutional investors without business card
+        const requestData: any = {
+          username: formData.username,
+          password: formData.password,
+          email: investorType === 'institutional' ? institutionalInvestorData.institutionalEmail : formData.email,
+          firstName: investorType === 'institutional' ? institutionalInvestorData.fullName : formData.firstName,
+          lastName: investorType === 'institutional' ? institutionalInvestorData.fullName : formData.lastName,
+          phone: investorType === 'institutional' ? institutionalInvestorData.workPhone : formData.phone,
+          userType,
+          ...(planFromUrl && { subscriptionPlan: planFromUrl })
+        };
+
+        // Add common investor data
+        if (investorType === 'common' && authMode === 'signup') {
+          requestData.investmentExperience = commonInvestorData.investmentExperience;
+          requestData.investmentBudget = commonInvestorData.investmentBudget;
+          requestData.preferredAreas = commonInvestorData.preferredAreas;
+        }
+
+        // Add institutional investor data
+        if (investorType === 'institutional' && authMode === 'signup') {
+          requestData.companyName = institutionalInvestorData.institutionName;
+          requestData.contactPerson = institutionalInvestorData.fullName;
+          requestData.jobTitle = institutionalInvestorData.jobTitle;
+          requestData.workPhone = institutionalInvestorData.workPhone;
+          requestData.personalPhone = institutionalInvestorData.personalPhone;
+        }
+
+        const result = await authRegister(requestData);
+        
+        if (result.success) {
+          setSuccess(result.message || 'Registration successful! Please check your email for verification.');
+          // Clear form
+          setFormData({
+            username: '',
+            password: '',
+            confirmPassword: '',
+            email: '',
+            firstName: '',
+            lastName: '',
+            phone: '',
+          });
+          setCommonInvestorData({
+            investmentExperience: '',
+            investmentBudget: '',
+            preferredAreas: []
+          });
+          setInstitutionalInvestorData({
+            fullName: '',
+            jobTitle: '',
+            workPhone: '',
+            personalPhone: '',
+            institutionName: '',
+            institutionalEmail: '',
+            businessCard: null
+          });
+          
+          // Redirect to dashboard
+          setTimeout(() => {
+            if (investorType === 'common') {
+              navigate('/dashboard/investor');
+            } else {
+              navigate('/dashboard/institutional');
+            }
+          }, 1500);
+        } else {
+          setError(result.message || 'Registration failed');
+        }
       }
     } catch (error) {
       setError('Network error. Please try again.');
@@ -460,15 +551,21 @@ const InvestorAuth: React.FC = () => {
                 {/* Email */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email <span className="text-red-500">*</span>
+                    {investorType === 'institutional' ? 'Institutional Email' : 'Email'} <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="email"
                     name="email"
                     type="email"
                     required
-                    value={formData.email}
-                    onChange={handleInputChange}
+                    value={investorType === 'institutional' ? institutionalInvestorData.institutionalEmail : formData.email}
+                    onChange={(e) => {
+                      if (investorType === 'institutional') {
+                        handleInstitutionalInvestorChange('institutionalEmail', e.target.value);
+                      } else {
+                        handleInputChange(e);
+                      }
+                    }}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>

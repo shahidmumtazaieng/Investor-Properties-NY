@@ -101,12 +101,12 @@ const InvestorDashboard: React.FC = () => {
 
       // Fetch foreclosure listings if user has subscription
       if (user?.hasForeclosureSubscription) {
-        const foreclosureResponse = await fetch('/api/investor/foreclosures', {
+        const foreclosureResponse = await fetch('/api/investors/foreclosures', {
           credentials: 'include'
         });
         const foreclosureData = await foreclosureResponse.json();
-        if (foreclosureData.listings) {
-          setForeclosureListings(foreclosureData.listings);
+        if (Array.isArray(foreclosureData)) {
+          setForeclosureListings(foreclosureData);
         }
       }
 

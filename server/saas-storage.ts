@@ -4,8 +4,12 @@ import {
   CommonInvestor, 
   InsertCommonInvestor,
   CommonInvestorSession,
-  InsertCommonInvestorSession
+  InsertCommonInvestorSession,
+  InstitutionalInvestor
 } from "../shared/schema.js";
+import { db } from './database.js';
+import * as schema from '../shared/schema.js';
+import { eq, desc } from 'drizzle-orm';
 
 // Extend the existing MemStorage class with SaaS functionality
 export class SaaSStorageExtension {
@@ -45,6 +49,29 @@ export class SaaSStorageExtension {
     
     return true;
   }
+  
+  async createForeclosureSubscriptionRequest(investorId: string, requestData: any): Promise<any> {
+    // Use the real database
+    if (db) {
+      try {
+        const result = await db.insert(schema.foreclosureSubscriptions).values({
+          leadId: investorId,
+          counties: requestData.counties || ['ALL'],
+          subscriptionType: requestData.subscriptionType || 'weekly',
+          isActive: false, // Not active until approved
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).returning();
+        return result[0];
+      } catch (error) {
+        console.error('Error creating foreclosure subscription request:', error);
+        throw error;
+      }
+    }
+    
+    // Mock implementation
+    return { id: randomUUID(), leadId: investorId, ...requestData, isActive: false };
+  }
 
   // Seed some sample common investors for testing
   private seedSampleInvestors() {
@@ -69,6 +96,8 @@ export class SaaSStorageExtension {
         hasForeclosureSubscription: false,
         foreclosureSubscriptionExpiry: null,
         subscriptionPlan: null,
+        passwordResetToken: null,
+        passwordResetExpires: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -92,6 +121,8 @@ export class SaaSStorageExtension {
         hasForeclosureSubscription: true,
         foreclosureSubscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
         subscriptionPlan: "yearly",
+        passwordResetToken: null,
+        passwordResetExpires: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       }
@@ -129,6 +160,8 @@ export class SaaSStorageExtension {
       hasForeclosureSubscription: insertInvestor.hasForeclosureSubscription ?? false,
       foreclosureSubscriptionExpiry: insertInvestor.foreclosureSubscriptionExpiry || null,
       subscriptionPlan: insertInvestor.subscriptionPlan || null,
+      passwordResetToken: insertInvestor.passwordResetToken || null,
+      passwordResetExpires: insertInvestor.passwordResetExpires || null,
       createdAt: now,
       updatedAt: now,
     };
@@ -214,10 +247,68 @@ export class SaaSStorageExtension {
     this.commonInvestorSessions.delete(sessionToken);
   }
 
+  // Institutional Investor methods
+  private institutionalInvestors: Map<string, InstitutionalInvestor> = new Map();
+  private institutionalSessions: Map<string, any> = new Map();
+  private institutionalInvestorsByUsername: Map<string, string> = new Map();
+  private institutionalInvestorsByEmail: Map<string, string> = new Map();
+
+  async getInstitutionalInvestorById(id: string): Promise<InstitutionalInvestor | null> {
+    return this.institutionalInvestors.get(id) || null;
+  }
+
+  async getInstitutionalInvestorByUsername(username: string): Promise<InstitutionalInvestor | null> {
+    const id = this.institutionalInvestorsByUsername.get(username);
+    return id ? this.institutionalInvestors.get(id) || null : null;
+  }
+
+  async getInstitutionalInvestorByEmail(email: string): Promise<InstitutionalInvestor | null> {
+    const id = this.institutionalInvestorsByEmail.get(email);
+    return id ? this.institutionalInvestors.get(id) || null : null;
+  }
+
+  async authenticateInstitutionalInvestor(username: string, password: string): Promise<InstitutionalInvestor | null> {
+    const investor = await this.getInstitutionalInvestorByUsername(username);
+    if (!investor || !investor.password) return null;
+
+    const isValid = await bcrypt.compare(password, investor.password);
+    return isValid ? investor : null;
+  }
+
+  async createInstitutionalSession(investorId: string, sessionToken: string, expiresAt: Date): Promise<void> {
+    const session = {
+      id: randomUUID(),
+      investorId,
+      sessionToken,
+      expiresAt,
+      createdAt: new Date(),
+    };
+
+    this.institutionalSessions.set(sessionToken, session);
+  }
+
+  async getInstitutionalSession(sessionToken: string): Promise<any | null> {
+    return this.institutionalSessions.get(sessionToken) || null;
+  }
+
+  async deleteInstitutionalSession(sessionToken: string): Promise<void> {
+    this.institutionalSessions.delete(sessionToken);
+  }
+
   // Offer methods (extend existing offers functionality)
   async createOffer(data: any): Promise<any> {
-    // This will be implemented to work with the existing offers system
-    // For now, return a mock implementation
+    // Use the real database
+    if (db) {
+      try {
+        const result = await db.insert(schema.offers).values(data).returning();
+        return result[0];
+      } catch (error) {
+        console.error('Error creating offer:', error);
+        throw error;
+      }
+    }
+    
+    // Fallback to mock implementation
     const id = randomUUID();
     const now = new Date();
     
@@ -229,27 +320,82 @@ export class SaaSStorageExtension {
       updatedAt: now,
     };
 
-    // In a real implementation, this would be stored in the offers map
     console.log("Creating offer:", offer);
     return offer;
   }
 
   async getOffersByInvestor(investorId: string, investorType: 'common' | 'institutional'): Promise<any[]> {
-    // Mock implementation - in real app, filter offers by investor
+    // Use the real database
+    if (db) {
+      try {
+        if (investorType === 'common') {
+          return await db.select().from(schema.offers)
+            .where(eq(schema.offers.commonInvestorId, investorId))
+            .orderBy(desc(schema.offers.createdAt));
+        } else {
+          return await db.select().from(schema.offers)
+            .where(eq(schema.offers.institutionalInvestorId, investorId))
+            .orderBy(desc(schema.offers.createdAt));
+        }
+      } catch (error) {
+        console.error('Error fetching offers by investor:', error);
+        return [];
+      }
+    }
+    
+    // Mock implementation
     return [];
   }
 
   async getOffersByProperty(propertyId: string): Promise<any[]> {
-    // Mock implementation - in real app, filter offers by property
+    // Use the real database
+    if (db) {
+      try {
+        return await db.select().from(schema.offers)
+          .where(eq(schema.offers.propertyId, propertyId))
+          .orderBy(desc(schema.offers.createdAt));
+      } catch (error) {
+        console.error('Error fetching offers by property:', error);
+        return [];
+      }
+    }
+    
+    // Mock implementation
     return [];
   }
 
   async updateOffer(id: string, data: Partial<any>): Promise<any | null> {
+    // Use the real database
+    if (db) {
+      try {
+        const result = await db.update(schema.offers)
+          .set({ ...data, updatedAt: new Date() })
+          .where(eq(schema.offers.id, id))
+          .returning();
+        return result[0];
+      } catch (error) {
+        console.error('Error updating offer:', error);
+        return null;
+      }
+    }
+    
     // Mock implementation
     return null;
   }
 
   async deleteOffer(id: string): Promise<boolean> {
+    // Use the real database
+    if (db) {
+      try {
+        await db.delete(schema.offers)
+          .where(eq(schema.offers.id, id));
+        return true;
+      } catch (error) {
+        console.error('Error deleting offer:', error);
+        return false;
+      }
+    }
+    
     // Mock implementation
     return true;
   }

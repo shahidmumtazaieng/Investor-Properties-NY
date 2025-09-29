@@ -1,8 +1,12 @@
 import { supabase, db } from './database.ts';
-import { eq, and, gte, desc } from 'drizzle-orm';
+import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import * as schema from '../shared/schema.ts';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import jwt from 'jsonwebtoken';
+
+// JWT secret - in production, use environment variable
+const JWT_SECRET = process.env.JWT_SECRET || 'investor-properties-ny-jwt-secret';
 
 /**
  * Database Repository - Handles all database operations
@@ -155,6 +159,17 @@ export class DatabaseRepository {
       .where(eq(schema.properties.id, id))
       .returning();
     return result[0];
+  }
+
+  // ==================== LEADS ====================
+  async getLeadById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock lead data');
+      return null;
+    }
+    const result = await db.select().from(schema.leads).where(eq(schema.leads.id, id));
+    return result[0] || null;
   }
 
   // ==================== PARTNERS ====================
@@ -551,6 +566,250 @@ export class DatabaseRepository {
     return result[0];
   }
 
+  // ==================== BID SERVICE REQUESTS ====================
+  
+  async createBidServiceRequest(requestData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating bid service request');
+      return { id: 'demo-bid-request-id', ...requestData };
+    }
+    
+    try {
+      const result = await db.insert(schema.bidServiceRequests).values(requestData).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating bid service request:', error);
+      throw error;
+    }
+  }
+
+  async getAllBidServiceRequests() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock bid service requests');
+      return [];
+    }
+    
+    try {
+      return await db.select().from(schema.bidServiceRequests)
+        .orderBy(desc(schema.bidServiceRequests.createdAt));
+    } catch (error) {
+      console.error('Error fetching all bid service requests:', error);
+      return [];
+    }
+  }
+
+  async getBidServiceRequestsByLeadId(leadId: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock bid service requests for leadId:', leadId);
+      return [];
+    }
+    
+    try {
+      return await db.select().from(schema.bidServiceRequests)
+        .where(eq(schema.bidServiceRequests.leadId, leadId))
+        .orderBy(desc(schema.bidServiceRequests.createdAt));
+    } catch (error) {
+      console.error('Error fetching bid service requests by leadId:', error);
+      return [];
+    }
+  }
+
+  async getBidServiceRequestById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock bid service request data');
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.bidServiceRequests)
+        .where(eq(schema.bidServiceRequests.id, id));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching bid service request:', error);
+      return null;
+    }
+  }
+
+  async updateBidServiceRequest(id: string, requestData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating bid service request');
+      return { id, ...requestData };
+    }
+    
+    try {
+      const result = await db.update(schema.bidServiceRequests)
+        .set({ ...requestData, updatedAt: new Date() })
+        .where(eq(schema.bidServiceRequests.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating bid service request:', error);
+      throw error;
+    }
+  }
+
+  // ==================== INSTITUTIONAL BID TRACKING ====================
+  
+  async createInstitutionalBidTracking(bidData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating institutional bid tracking');
+      return { id: 'demo-bid-id', ...bidData };
+    }
+    
+    try {
+      const result = await db.insert(schema.institutionalBidTracking).values(bidData).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating institutional bid tracking:', error);
+      throw error;
+    }
+  }
+
+  async getAllInstitutionalBidTracking() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock institutional bid tracking records');
+      return [];
+    }
+    
+    try {
+      return await db.select().from(schema.institutionalBidTracking)
+        .orderBy(desc(schema.institutionalBidTracking.createdAt));
+    } catch (error) {
+      console.error('Error fetching all institutional bid tracking records:', error);
+      return [];
+    }
+  }
+
+  async getInstitutionalBidTrackingById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock institutional bid tracking data');
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.institutionalBidTracking)
+        .where(eq(schema.institutionalBidTracking.id, id));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching institutional bid tracking:', error);
+      return null;
+    }
+  }
+
+  async getInstitutionalBidTrackingByInvestorId(investorId: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock institutional bid tracking data for investorId:', investorId);
+      return [];
+    }
+    
+    try {
+      return await db.select().from(schema.institutionalBidTracking)
+        .where(eq(schema.institutionalBidTracking.investorId, investorId))
+        .orderBy(desc(schema.institutionalBidTracking.createdAt));
+    } catch (error) {
+      console.error('Error fetching institutional bid tracking by investorId:', error);
+      return [];
+    }
+  }
+
+  async updateInstitutionalBidTracking(id: string, bidData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating institutional bid tracking');
+      return { id, ...bidData };
+    }
+    
+    try {
+      const result = await db.update(schema.institutionalBidTracking)
+        .set({ ...bidData, updatedAt: new Date() })
+        .where(eq(schema.institutionalBidTracking.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating institutional bid tracking:', error);
+      throw error;
+    }
+  }
+
+  // ==================== FORECLOSURE BIDDING ====================
+  async createForeclosureBid(bidData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating foreclosure bid');
+      return { id: 'demo-bid-id', ...bidData };
+    }
+    
+    try {
+      const result = await db.insert(schema.institutionalBidTracking).values(bidData).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating foreclosure bid:', error);
+      throw error;
+    }
+  }
+
+  async getForeclosureBidsByInvestorId(investorId: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock foreclosure bids for investorId:', investorId);
+      return [];
+    }
+    
+    try {
+      return await db.select().from(schema.institutionalBidTracking)
+        .where(eq(schema.institutionalBidTracking.investorId, investorId))
+        .orderBy(desc(schema.institutionalBidTracking.createdAt));
+    } catch (error) {
+      console.error('Error fetching foreclosure bids by investorId:', error);
+      return [];
+    }
+  }
+
+  async getForeclosureBidById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock foreclosure bid data');
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.institutionalBidTracking)
+        .where(eq(schema.institutionalBidTracking.id, id));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching foreclosure bid:', error);
+      return null;
+    }
+  }
+
+  async updateForeclosureBid(id: string, bidData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating foreclosure bid');
+      return { id, ...bidData };
+    }
+    
+    try {
+      const result = await db.update(schema.institutionalBidTracking)
+        .set({ ...bidData, updatedAt: new Date() })
+        .where(eq(schema.institutionalBidTracking.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating foreclosure bid:', error);
+      throw error;
+    }
+  }
+
   // ==================== OFFERS ====================
   async getAllOffers() {
     // Handle demo mode
@@ -592,6 +851,24 @@ export class DatabaseRepository {
     return await db.select().from(schema.offers)
       .where(eq(schema.offers.buyerLeadId, buyerId))
       .orderBy(desc(schema.offers.createdAt));
+  }
+
+  async getOffersByInvestorId(investorId: string, investorType: 'common' | 'institutional') {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock offers data for investorId:', investorId);
+      return [];
+    }
+    
+    if (investorType === 'common') {
+      return await db.select().from(schema.offers)
+        .where(eq(schema.offers.commonInvestorId, investorId))
+        .orderBy(desc(schema.offers.createdAt));
+    } else {
+      return await db.select().from(schema.offers)
+        .where(eq(schema.offers.institutionalInvestorId, investorId))
+        .orderBy(desc(schema.offers.createdAt));
+    }
   }
 
   async createOffer(offerData: any) {
@@ -668,6 +945,102 @@ export class DatabaseRepository {
         updatedAt: new Date()
       })
       .where(eq(schema.foreclosureSubscriptions.leadId, investorId));
+    
+    return result[0];
+  }
+
+  // ==================== FORECLOSURE SUBSCRIPTION REQUESTS ====================
+  async createForeclosureSubscriptionRequest(investorId: string, requestData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating foreclosure subscription request');
+      return { id: 'demo-subscription-request-id', leadId: investorId, ...requestData };
+    }
+    
+    // Create a subscription request record
+    const result = await db.insert(schema.foreclosureSubscriptions).values({
+      leadId: investorId,
+      counties: requestData.counties || ['ALL'],
+      subscriptionType: requestData.subscriptionType || 'weekly',
+      isActive: false, // Not active until approved
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    
+    return result[0];
+  }
+
+  async getForeclosureSubscriptionRequests() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock foreclosure subscription requests');
+      return [];
+    }
+    
+    // Get all subscription requests that are not yet active
+    return await db.select().from(schema.foreclosureSubscriptions)
+      .where(eq(schema.foreclosureSubscriptions.isActive, false))
+      .orderBy(desc(schema.foreclosureSubscriptions.createdAt));
+  }
+
+  async getForeclosureSubscriptionRequestById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock foreclosure subscription request');
+      return null;
+    }
+    
+    const result = await db.select().from(schema.foreclosureSubscriptions)
+      .where(and(
+        eq(schema.foreclosureSubscriptions.id, id),
+        eq(schema.foreclosureSubscriptions.isActive, false)
+      ));
+    
+    return result[0] || null;
+  }
+
+  async approveForeclosureSubscriptionRequest(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not approving foreclosure subscription request');
+      return { id };
+    }
+    
+    // Update the subscription request to active
+    const result = await db.update(schema.foreclosureSubscriptions)
+      .set({ 
+        isActive: true,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.foreclosureSubscriptions.id, id))
+      .returning();
+    
+    // Also update the investor record to have foreclosure subscription
+    if (result[0]) {
+      await db.update(schema.commonInvestors)
+        .set({ 
+          hasForeclosureSubscription: true,
+          foreclosureSubscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+          subscriptionPlan: result[0].subscriptionType,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.commonInvestors.id, result[0].leadId));
+    }
+    
+    return result[0];
+  }
+
+  async rejectForeclosureSubscriptionRequest(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not rejecting foreclosure subscription request');
+      return { id };
+    }
+    
+    // Delete the subscription request
+    const result = await db.delete(schema.foreclosureSubscriptions)
+      .where(eq(schema.foreclosureSubscriptions.id, id))
+      .returning();
     
     return result[0];
   }
@@ -888,6 +1261,45 @@ export class DatabaseRepository {
       return password; // In demo mode, just return the password as-is
     }
     return await bcrypt.hash(password, 12);
+  }
+
+  // ==================== JWT TOKEN FUNCTIONS ====================
+  
+  /**
+   * Generate JWT token for user
+   */
+  generateJWTToken(user: any, userType: string): string {
+    const payload = {
+      id: user.id,
+      username: user.username || user.email,
+      email: user.email,
+      userType: userType,
+      // Add any other user data you want in the token
+    };
+    
+    // Token expires in 30 days
+    const expiresIn = '30d';
+    
+    return jwt.sign(payload, JWT_SECRET, { expiresIn });
+  }
+  
+  /**
+   * Verify JWT token
+   */
+  verifyJWTToken(token: string): any {
+    try {
+      return jwt.verify(token, JWT_SECRET);
+    } catch (error) {
+      console.error('JWT verification error:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Decode JWT token without verification (for debugging)
+   */
+  decodeJWTToken(token: string): any {
+    return jwt.decode(token);
   }
 
   // ==================== PASSWORD RESET ====================
@@ -1303,5 +1715,299 @@ export class DatabaseRepository {
     }
     const result = await db.delete(schema.blogs).where(eq(schema.blogs.id, id)).returning();
     return result[0];
+  }
+
+  // ==================== ADMIN DASHBOARD STATS ====================
+  
+  async getDashboardStats() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock dashboard stats');
+      return {
+        totalUsers: 124,
+        pendingApprovals: 8,
+        activeProperties: 42,
+        totalRevenue: 12500
+      };
+    }
+    
+    try {
+      // Get total users count using the view
+      const allUsers = await db.select().from(schema.allUsersView);
+      const totalUsers = allUsers.length;
+      
+      // Get pending approvals (institutional investors with pending status)
+      const pendingInstitutionalInvestors = await db.select().from(schema.institutionalInvestors)
+        .where(eq(schema.institutionalInvestors.status, 'pending'));
+      
+      // Get active properties
+      const activeProperties = await db.select().from(schema.properties)
+        .where(eq(schema.properties.isActive, true));
+      
+      // Calculate total revenue (simplified - would need more complex logic in real implementation)
+      // For now, we'll use a placeholder value based on active properties
+      const totalRevenue = activeProperties.length * 300; // $300 per active property
+      
+      return {
+        totalUsers,
+        pendingApprovals: pendingInstitutionalInvestors.length,
+        activeProperties: activeProperties.length,
+        totalRevenue
+      };
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      // Return mock data as fallback
+      return {
+        totalUsers: 124,
+        pendingApprovals: 8,
+        activeProperties: 42,
+        totalRevenue: 12500
+      };
+    }
+  }
+  
+  async getPendingApprovals() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock pending approvals');
+      return [];
+    }
+    
+    try {
+      // Get institutional investors with pending status
+      const pendingInstitutionalInvestors = await db.select().from(schema.institutionalInvestors)
+        .where(eq(schema.institutionalInvestors.status, 'pending'))
+        .orderBy(desc(schema.institutionalInvestors.createdAt));
+      
+      return pendingInstitutionalInvestors;
+    } catch (error) {
+      console.error('Error fetching pending approvals:', error);
+      return [];
+    }
+  }
+  
+  async getActivePropertiesCount() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock active properties count');
+      return 42;
+    }
+    
+    try {
+      const result = await db.select().from(schema.properties)
+        .where(eq(schema.properties.isActive, true));
+      return result.length;
+    } catch (error) {
+      console.error('Error fetching active properties count:', error);
+      return 42; // Return mock value as fallback
+    }
+  }
+  
+  async getTotalRevenue() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock total revenue');
+      return 12500;
+    }
+    
+    try {
+      // Simplified revenue calculation - in a real implementation, this would be more complex
+      // based on actual transactions, subscriptions, etc.
+      const activePropertiesCount = await this.getActivePropertiesCount();
+      const revenue = activePropertiesCount * 300; // $300 per active property
+      
+      return revenue;
+    } catch (error) {
+      console.error('Error calculating total revenue:', error);
+      return 12500; // Return mock value as fallback
+    }
+  }
+  
+  // ==================== EMAIL CAMPAIGNS ====================
+  
+  async getAllEmailCampaigns() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock email campaigns');
+      return [
+        {
+          id: '1',
+          name: 'Weekly Property Update',
+          subject: 'New Properties This Week',
+          content: '<p>Check out our latest property listings...</p>',
+          recipients: 'all',
+          status: 'sent',
+          sentAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: '2',
+          name: 'Foreclosure Alert',
+          subject: 'New Foreclosure Listings',
+          content: '<p>New foreclosure properties available...</p>',
+          recipients: 'institutional_investors',
+          status: 'draft',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+    }
+    
+    try {
+      return await db.select().from(schema.emailCampaigns)
+        .orderBy(desc(schema.emailCampaigns.createdAt));
+    } catch (error) {
+      console.error('Error fetching email campaigns:', error);
+      return [];
+    }
+  }
+  
+  async getEmailCampaignById(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock email campaign for id:', id);
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.emailCampaigns)
+        .where(eq(schema.emailCampaigns.id, id));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching email campaign by id:', error);
+      return null;
+    }
+  }
+  
+  async createEmailCampaign(campaignData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not creating email campaign');
+      return { id: 'demo-campaign-id', ...campaignData, createdAt: new Date(), updatedAt: new Date() };
+    }
+    
+    try {
+      const result = await db.insert(schema.emailCampaigns).values(campaignData).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating email campaign:', error);
+      throw error;
+    }
+  }
+  
+  async updateEmailCampaign(id: string, campaignData: any) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not updating email campaign');
+      return { id, ...campaignData };
+    }
+    
+    try {
+      const result = await db.update(schema.emailCampaigns)
+        .set({ ...campaignData, updatedAt: new Date() })
+        .where(eq(schema.emailCampaigns.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating email campaign:', error);
+      throw error;
+    }
+  }
+  
+  async deleteEmailCampaign(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not deleting email campaign');
+      return { id };
+    }
+    
+    try {
+      const result = await db.delete(schema.emailCampaigns)
+        .where(eq(schema.emailCampaigns.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error deleting email campaign:', error);
+      throw error;
+    }
+  }
+
+  // ==================== ANALYTICS ====================
+  async getAnalyticsData() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock analytics data');
+      return {
+        totalUsers: 150,
+        totalProperties: 86,
+        totalInvestors: 110,
+        totalSellers: 24,
+        recentActivity: [
+          { type: 'new_user', count: 12, date: new Date() },
+          { type: 'new_property', count: 5, date: new Date() },
+          { type: 'new_investment', count: 3, date: new Date() }
+        ],
+        revenueData: [
+          { month: 'Jan', revenue: 12500 },
+          { month: 'Feb', revenue: 18600 },
+          { month: 'Mar', revenue: 15400 }
+        ]
+      };
+    }
+
+    try {
+      // Get counts for different user types
+      const commonInvestors = await db.select({ count: sql<number>`count(*)` }).from(schema.commonInvestors);
+      const institutionalInvestors = await db.select({ count: sql<number>`count(*)` }).from(schema.institutionalInvestors);
+      const partners = await db.select({ count: sql<number>`count(*)` }).from(schema.partners);
+      const properties = await db.select({ count: sql<number>`count(*)` }).from(schema.properties);
+      
+      // Return analytics data
+      return {
+        totalUsers: commonInvestors[0].count + institutionalInvestors[0].count + partners[0].count,
+        totalProperties: properties[0].count,
+        totalInvestors: commonInvestors[0].count + institutionalInvestors[0].count,
+        totalSellers: partners[0].count,
+        // In a real implementation, you would add more detailed analytics data here
+        recentActivity: [],
+        revenueData: []
+      };
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+      throw error;
+    }
+  }
+
+  async getSecurityAnalytics() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock security analytics data');
+      return {
+        totalSecurityEvents: 24,
+        recentEvents: [
+          { type: 'failed_login', count: 8, severity: 'medium' },
+          { type: 'suspicious_activity', count: 3, severity: 'high' },
+          { type: 'password_reset', count: 13, severity: 'low' }
+        ],
+        topThreats: [
+          { ip: '192.168.1.100', attempts: 15, lastSeen: new Date() },
+          { ip: '104.28.29.10', attempts: 8, lastSeen: new Date() }
+        ]
+      };
+    }
+
+    try {
+      // In a real implementation, you would query security-related data from the database
+      // For now, returning mock data structure
+      return {
+        totalSecurityEvents: 0,
+        recentEvents: [],
+        topThreats: []
+      };
+    } catch (error) {
+      console.error('Error fetching security analytics data:', error);
+      throw error;
+    }
   }
 }

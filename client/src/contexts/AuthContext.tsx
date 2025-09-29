@@ -15,6 +15,7 @@ interface User {
   hasForeclosureSubscription?: boolean;
   subscriptionPlan?: string;
   status?: string;
+  businessCardUrl?: string;
 }
 
 interface LoginData {
@@ -36,12 +37,14 @@ interface RegisterData {
   workPhone?: string;
   personalPhone?: string;
   subscriptionPlan?: string;
+  businessCard?: File;
 }
 
 interface AuthResponse {
   success: boolean;
   message: string;
   user?: User;
+  token?: string;
 }
 
 interface AuthContextType {
@@ -74,16 +77,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuthStatus = async () => {
     try {
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/auth/status', {
-        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const data = await response.json();
       
       if (data.user) {
         setUser(data.user);
+      } else {
+        // If token is invalid, remove it
+        localStorage.removeItem('token');
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
+      // Remove invalid token
+      localStorage.removeItem('token');
     } finally {
       setLoading(false);
     }
@@ -98,6 +116,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         endpoint = '/api/auth/institutional/login';
       } else if (loginData.userType === 'admin') {
         endpoint = '/api/auth/admin/login';
+      } else if (loginData.userType === 'seller') {
+        endpoint = '/api/auth/partners/login';
       } else {
         endpoint = '/api/auth/investors/login';
       }
@@ -107,7 +127,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({
           username: loginData.username,
           password: loginData.password,
@@ -116,12 +135,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const data = await response.json();
       
-      if (data.success) {
+      if (data.success && data.token) {
+        // Store token in localStorage
+        localStorage.setItem('token', data.token);
         setUser(data.user);
         return {
           success: true,
           message: data.message || 'Login successful',
-          user: data.user
+          user: data.user,
+          token: data.token
         };
       } else {
         return {
@@ -144,36 +166,91 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      const endpoint = registerData.userType === 'institutional_investor'
-        ? '/api/auth/institutional/register'
-        : '/api/auth/investors/register';
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(registerData),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Don't auto-login for registrations that require verification/approval
-        if (data.user && !data.requiresVerification && !data.requiresApproval) {
-          setUser(data.user);
+      // For institutional investors with business card, we need to use FormData
+      if (registerData.userType === 'institutional_investor' && registerData.businessCard) {
+        const formDataObj = new FormData();
+        
+        // Add all the form data
+        formDataObj.append('username', registerData.username);
+        formDataObj.append('password', registerData.password);
+        formDataObj.append('email', registerData.email);
+        formDataObj.append('firstName', registerData.firstName);
+        formDataObj.append('lastName', registerData.lastName);
+        formDataObj.append('phone', registerData.phone || '');
+        formDataObj.append('userType', registerData.userType);
+        formDataObj.append('companyName', registerData.company || '');
+        formDataObj.append('jobTitle', registerData.jobTitle || '');
+        formDataObj.append('workPhone', registerData.workPhone || '');
+        formDataObj.append('personalPhone', registerData.personalPhone || '');
+        
+        // Add the business card file
+        formDataObj.append('businessCard', registerData.businessCard);
+        
+        // Add plan if available
+        if (registerData.subscriptionPlan) {
+          formDataObj.append('subscriptionPlan', registerData.subscriptionPlan);
         }
-        return {
-          success: true,
-          message: data.message || 'Registration successful',
-          user: data.user
-        };
+        
+        const response = await fetch('/api/auth/institutional/register', {
+          method: 'POST',
+          body: formDataObj,
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.token) {
+          // Store token in localStorage
+          localStorage.setItem('token', data.token);
+          setUser(data.user);
+          return {
+            success: true,
+            message: data.message || 'Registration successful',
+            user: data.user,
+            token: data.token
+          };
+        } else {
+          return {
+            success: false,
+            message: data.message || 'Registration failed'
+          };
+        }
       } else {
-        return {
-          success: false,
-          message: data.message || 'Registration failed'
-        };
+        // Regular registration for other user types
+        let endpoint = '';
+        if (registerData.userType === 'institutional_investor') {
+          endpoint = '/api/auth/institutional/register';
+        } else if (registerData.userType === 'seller') {
+          endpoint = '/api/auth/partners/register';
+        } else {
+          endpoint = '/api/auth/investors/register';
+        }
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(registerData),
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.token) {
+          // Store token in localStorage
+          localStorage.setItem('token', data.token);
+          setUser(data.user);
+          return {
+            success: true,
+            message: data.message || 'Registration successful',
+            user: data.user,
+            token: data.token
+          };
+        } else {
+          return {
+            success: false,
+            message: data.message || 'Registration failed'
+          };
+        }
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -186,36 +263,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setUser(null);
-    }
+  const logout = () => {
+    // Remove token from localStorage
+    localStorage.removeItem('token');
+    setUser(null);
   };
 
-  // Add a timeout to ensure loading doesn't hang indefinitely
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (loading) {
-        setLoading(false);
-      }
-    }, 5000); // 5 second timeout
-    
-    return () => clearTimeout(timer);
-  }, [loading]);
+  // Alias for register
+  const signup = register;
 
-  const value: AuthContextType = {
+  const value = {
     user,
     loading,
     login,
     logout,
-    signup: register,
+    signup,
     register
   };
 

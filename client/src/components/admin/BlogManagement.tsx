@@ -232,13 +232,19 @@ const BlogManagement: React.FC = () => {
       let response;
       let data;
       
+      // Convert tags array to a proper format for the backend
+      let tagsArray = currentPost.tags;
+      if (typeof currentPost.tags === 'string') {
+        tagsArray = (currentPost.tags as string).split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag.length > 0);
+      }
+      
       const blogData = {
         title: currentPost.title,
         excerpt: currentPost.excerpt,
         content: currentPost.content,
         author: currentPost.author.name,
         category: currentPost.category,
-        tags: currentPost.tags,
+        tags: tagsArray,
         featured: currentPost.featured,
         image: currentPost.image,
         slug: currentPost.slug || currentPost.title
@@ -284,7 +290,8 @@ const BlogManagement: React.FC = () => {
               avatar: authors.find(a => a.name === data.post.author)?.avatar || authors[0].avatar
             },
             image: data.post.image || data.post.coverImage || '/placeholder-blog.jpg',
-            date: data.post.date || data.post.updatedAt || post.date
+            date: data.post.date || data.post.updatedAt || post.date,
+            tags: Array.isArray(data.post.tags) ? data.post.tags : []
           } : post));
           alert('Blog post updated successfully!');
         } else {
@@ -445,13 +452,14 @@ const BlogManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
                   <Input
                     type="text"
-                    placeholder="Enter tags separated by commas"
-                    value={currentPost.tags.join(', ')}
+                    value={Array.isArray(currentPost.tags) ? currentPost.tags.join(', ') : currentPost.tags}
                     onChange={(e) => setCurrentPost({ 
                       ...currentPost, 
-                      tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag) 
+                      tags: e.target.value.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag.length > 0)
                     })}
+                    placeholder="Enter tags separated by commas"
                   />
+                  <p className="mt-1 text-sm text-gray-500">Separate tags with commas (e.g., investment, real estate, NYC)</p>
                 </div>
                 
                 <div>

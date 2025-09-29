@@ -659,10 +659,39 @@ export const systemSettings = pgTable("system_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+// Email Campaigns table
+export const emailCampaigns = pgTable("email_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  subject: varchar("subject").notNull(),
+  content: text("content").notNull(),
+  recipients: text("recipients").notNull(), // 'all', 'common_investors', 'institutional_investors', 'sellers'
+  status: varchar("status").notNull().default("draft"), // 'draft', 'scheduled', 'sent'
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export type EmailCampaign = typeof emailCampaigns.$inferSelect;
+export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;
+
+// All Users View (for admin dashboard)
+export const allUsersView = pgTable("all_users_view", {
+  id: varchar("id").primaryKey(),
+  username: varchar("username"),
+  email: varchar("email"),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  userType: varchar("user_type"),
+  status: varchar("status"),
+  createdAt: timestamp("created_at"),
 });
 
 // ==================== NEW TYPES ====================
@@ -684,6 +713,12 @@ export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
 
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
