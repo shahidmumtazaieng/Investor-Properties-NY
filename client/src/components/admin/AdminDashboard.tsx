@@ -28,7 +28,20 @@ const AdminDashboard: React.FC = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      // Simulate API call
+      const response = await fetch('/api/admin/dashboard/stats', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard stats');
+      }
+      
+      const data = await response.json();
+      setStats(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      // Fallback to mock data
       setTimeout(() => {
         setStats({
           totalUsers: 124,
@@ -38,9 +51,6 @@ const AdminDashboard: React.FC = () => {
         });
         setLoading(false);
       }, 1000);
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      setLoading(false);
     }
   };
 

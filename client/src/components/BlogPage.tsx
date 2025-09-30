@@ -296,12 +296,11 @@ const BlogPage: React.FC = () => {
               <div className="p-6">
                 <h3 className="text-xl font-bold text-primary-blue mb-4">Search Articles</h3>
                 <div className="relative">
-                  <input
+                  <Input
                     type="text"
-                    placeholder="Search blog posts..."
-                    className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-300"
+                    placeholder="Search articles..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                   />
                   <MagnifyingGlassIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 </div>

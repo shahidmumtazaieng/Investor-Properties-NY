@@ -559,7 +559,7 @@ const InvestorAuth: React.FC = () => {
                     type="email"
                     required
                     value={investorType === 'institutional' ? institutionalInvestorData.institutionalEmail : formData.email}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       if (investorType === 'institutional') {
                         handleInstitutionalInvestorChange('institutionalEmail', e.target.value);
                       } else {
@@ -631,7 +631,7 @@ const InvestorAuth: React.FC = () => {
                       </label>
                       <select
                         value={commonInvestorData.investmentExperience}
-                        onChange={(e) => handleCommonInvestorChange('investmentExperience', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCommonInvestorChange('investmentExperience', e.target.value)}
                         required
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
@@ -648,7 +648,7 @@ const InvestorAuth: React.FC = () => {
                       </label>
                       <select
                         value={commonInvestorData.investmentBudget}
-                        onChange={(e) => handleCommonInvestorChange('investmentBudget', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCommonInvestorChange('investmentBudget', e.target.value)}
                         required
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
@@ -699,7 +699,7 @@ const InvestorAuth: React.FC = () => {
                         type="text"
                         required
                         value={institutionalInvestorData.fullName}
-                        onChange={(e) => handleInstitutionalInvestorChange('fullName', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInstitutionalInvestorChange('fullName', e.target.value)}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -714,7 +714,7 @@ const InvestorAuth: React.FC = () => {
                         type="text"
                         required
                         value={institutionalInvestorData.jobTitle}
-                        onChange={(e) => handleInstitutionalInvestorChange('jobTitle', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInstitutionalInvestorChange('jobTitle', e.target.value)}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -730,7 +730,7 @@ const InvestorAuth: React.FC = () => {
                           type="tel"
                           required
                           value={institutionalInvestorData.workPhone}
-                          onChange={(e) => handleInstitutionalInvestorChange('workPhone', e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInstitutionalInvestorChange('workPhone', e.target.value)}
                           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
@@ -744,7 +744,7 @@ const InvestorAuth: React.FC = () => {
                           type="tel"
                           required
                           value={institutionalInvestorData.personalPhone}
-                          onChange={(e) => handleInstitutionalInvestorChange('personalPhone', e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInstitutionalInvestorChange('personalPhone', e.target.value)}
                           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
@@ -760,7 +760,7 @@ const InvestorAuth: React.FC = () => {
                         type="text"
                         required
                         value={institutionalInvestorData.institutionName}
-                        onChange={(e) => handleInstitutionalInvestorChange('institutionName', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInstitutionalInvestorChange('institutionName', e.target.value)}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -775,7 +775,7 @@ const InvestorAuth: React.FC = () => {
                         type="email"
                         required
                         value={institutionalInvestorData.institutionalEmail}
-                        onChange={(e) => handleInstitutionalInvestorChange('institutionalEmail', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInstitutionalInvestorChange('institutionalEmail', e.target.value)}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>

@@ -391,7 +391,7 @@ const BlogManagement: React.FC = () => {
                   <Input
                     type="text"
                     value={currentPost.title}
-                    onChange={(e) => setCurrentPost({ ...currentPost, title: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPost({ ...currentPost, title: e.target.value })}
                     required
                   />
                 </div>
@@ -401,7 +401,7 @@ const BlogManagement: React.FC = () => {
                   <Input
                     type="text"
                     value={currentPost.slug}
-                    onChange={(e) => setCurrentPost({ ...currentPost, slug: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPost({ ...currentPost, slug: e.target.value })}
                     placeholder="auto-generated-from-title"
                   />
                 </div>
@@ -411,7 +411,7 @@ const BlogManagement: React.FC = () => {
                   <Textarea
                     rows={3}
                     value={currentPost.excerpt}
-                    onChange={(e) => setCurrentPost({ ...currentPost, excerpt: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCurrentPost({ ...currentPost, excerpt: e.target.value })}
                   />
                 </div>
                 
@@ -420,7 +420,7 @@ const BlogManagement: React.FC = () => {
                   <Textarea
                     rows={12}
                     value={currentPost.content}
-                    onChange={(e) => setCurrentPost({ ...currentPost, content: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCurrentPost({ ...currentPost, content: e.target.value })}
                     required
                   />
                 </div>
@@ -431,7 +431,7 @@ const BlogManagement: React.FC = () => {
                     <Select
                       options={authors.map(author => ({ value: author.name, label: author.name }))}
                       value={currentPost.author.name}
-                      onChange={(e) => setCurrentPost({ 
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCurrentPost({ 
                         ...currentPost, 
                         author: authors.find(a => a.name === e.target.value) || authors[0] 
                       })}
@@ -443,7 +443,7 @@ const BlogManagement: React.FC = () => {
                     <Select
                       options={categories.map(category => ({ value: category, label: category }))}
                       value={currentPost.category}
-                      onChange={(e) => setCurrentPost({ ...currentPost, category: e.target.value })}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCurrentPost({ ...currentPost, category: e.target.value })}
                     />
                   </div>
                 </div>
@@ -453,7 +453,7 @@ const BlogManagement: React.FC = () => {
                   <Input
                     type="text"
                     value={Array.isArray(currentPost.tags) ? currentPost.tags.join(', ') : currentPost.tags}
-                    onChange={(e) => setCurrentPost({ 
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPost({ 
                       ...currentPost, 
                       tags: e.target.value.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag.length > 0)
                     })}
@@ -467,7 +467,7 @@ const BlogManagement: React.FC = () => {
                   <Input
                     type="text"
                     value={currentPost.image}
-                    onChange={(e) => setCurrentPost({ ...currentPost, image: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPost({ ...currentPost, image: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                   />
                 </div>
@@ -479,7 +479,7 @@ const BlogManagement: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={currentPost.published}
-                        onChange={(e) => setCurrentPost({ ...currentPost, published: e.target.checked })}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPost({ ...currentPost, published: e.target.checked })}
                         className="h-4 w-4 text-primary-blue focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <span className="ml-2 text-sm text-gray-700">Published</span>
@@ -492,7 +492,7 @@ const BlogManagement: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={currentPost.featured}
-                        onChange={(e) => setCurrentPost({ ...currentPost, featured: e.target.checked })}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPost({ ...currentPost, featured: e.target.checked })}
                         className="h-4 w-4 text-primary-blue focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <span className="ml-2 text-sm text-gray-700">Mark as featured post</span>
@@ -549,7 +549,7 @@ const BlogManagement: React.FC = () => {
                   type="text"
                   placeholder="Search posts..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div>
@@ -560,7 +560,7 @@ const BlogManagement: React.FC = () => {
                     ...categories.map(category => ({ value: category, label: category }))
                   ]}
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedCategory(e.target.value)}
                 />
               </div>
               <div className="flex items-end">

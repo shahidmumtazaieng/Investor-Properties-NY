@@ -746,7 +746,7 @@ const PropertyManagement: React.FC = () => {
           <Card className="bg-white shadow mb-8">
             <div className="p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Create New Property Listing</h2>
-              <form onSubmit={(e) => {
+              <form onSubmit={(e: React.FormEvent) => {
                 e.preventDefault();
                 if (propertyForm.id) {
                   // Update existing property
@@ -806,7 +806,7 @@ const PropertyManagement: React.FC = () => {
                       type="text"
                       required
                       value={propertyForm.address}
-                      onChange={(e) => handlePropertyFormChange('address', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('address', e.target.value)}
                     />
                   </div>
                   <div>
@@ -815,7 +815,7 @@ const PropertyManagement: React.FC = () => {
                       type="text"
                       required
                       value={propertyForm.neighborhood}
-                      onChange={(e) => handlePropertyFormChange('neighborhood', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('neighborhood', e.target.value)}
                     />
                   </div>
                   <div>
@@ -830,7 +830,7 @@ const PropertyManagement: React.FC = () => {
                         { value: 'Staten Island', label: 'Staten Island' }
                       ]}
                       value={propertyForm.borough}
-                      onChange={(e) => handlePropertyFormChange('borough', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handlePropertyFormChange('borough', e.target.value)}
                       required
                     />
                   </div>
@@ -846,7 +846,7 @@ const PropertyManagement: React.FC = () => {
                         { value: 'Commercial', label: 'Commercial' }
                       ]}
                       value={propertyForm.propertyType}
-                      onChange={(e) => handlePropertyFormChange('propertyType', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handlePropertyFormChange('propertyType', e.target.value)}
                       required
                     />
                   </div>
@@ -856,7 +856,7 @@ const PropertyManagement: React.FC = () => {
                       type="number"
                       min="0"
                       value={propertyForm.beds}
-                      onChange={(e) => handlePropertyFormChange('beds', parseInt(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('beds', parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
@@ -864,7 +864,7 @@ const PropertyManagement: React.FC = () => {
                     <Input
                       type="text"
                       value={propertyForm.baths}
-                      onChange={(e) => handlePropertyFormChange('baths', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('baths', e.target.value)}
                     />
                   </div>
                   <div>
@@ -873,7 +873,7 @@ const PropertyManagement: React.FC = () => {
                       type="number"
                       min="0"
                       value={propertyForm.sqft}
-                      onChange={(e) => handlePropertyFormChange('sqft', parseInt(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('sqft', parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
@@ -882,7 +882,7 @@ const PropertyManagement: React.FC = () => {
                       type="text"
                       required
                       value={propertyForm.price}
-                      onChange={(e) => handlePropertyFormChange('price', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('price', e.target.value)}
                     />
                   </div>
                   <div>
@@ -892,7 +892,7 @@ const PropertyManagement: React.FC = () => {
                       min="1800"
                       max={new Date().getFullYear()}
                       value={propertyForm.yearBuilt}
-                      onChange={(e) => handlePropertyFormChange('yearBuilt', parseInt(e.target.value) || new Date().getFullYear())}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('yearBuilt', parseInt(e.target.value) || new Date().getFullYear())}
                     />
                   </div>
                   <div>
@@ -905,7 +905,7 @@ const PropertyManagement: React.FC = () => {
                         { value: 'Poor', label: 'Poor' }
                       ]}
                       value={propertyForm.condition}
-                      onChange={(e) => handlePropertyFormChange('condition', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handlePropertyFormChange('condition', e.target.value)}
                     />
                   </div>
                 </div>
@@ -915,7 +915,7 @@ const PropertyManagement: React.FC = () => {
                   <Textarea
                     rows={4}
                     value={propertyForm.description}
-                    onChange={(e) => handlePropertyFormChange('description', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handlePropertyFormChange('description', e.target.value)}
                   />
                 </div>
 
@@ -1063,7 +1063,7 @@ const PropertyManagement: React.FC = () => {
                           </label>
                           <select
                             value={columnMapping[field] || ''}
-                            onChange={(e) => handleColumnMappingChange(field, e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleColumnMappingChange(field, e.target.value)}
                             className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                           >
                             <option value="">Select column</option>

@@ -239,7 +239,7 @@ const PropertiesPage: React.FC = () => {
                   type="text"
                   placeholder="Search by address, neighborhood, or borough..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-accent-yellow"
                 />
               </div>
@@ -256,7 +256,7 @@ const PropertiesPage: React.FC = () => {
               {/* Borough Filter */}
               <select
                 value={selectedBorough}
-                onChange={(e) => setSelectedBorough(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedBorough(e.target.value)}
                 className="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-yellow"
               >
                 <option value="all">All Boroughs</option>
@@ -270,7 +270,7 @@ const PropertiesPage: React.FC = () => {
               {/* Property Type Filter */}
               <select
                 value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedType(e.target.value)}
                 className="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-yellow"
               >
                 <option value="all">All Types</option>
@@ -286,7 +286,7 @@ const PropertiesPage: React.FC = () => {
               {/* Price Range Filter */}
               <select
                 value={priceRange}
-                onChange={(e) => setPriceRange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPriceRange(e.target.value)}
                 className="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-yellow"
               >
                 <option value="all">All Prices</option>

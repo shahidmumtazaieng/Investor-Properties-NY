@@ -8,7 +8,7 @@ import postgres from 'postgres';
 import * as schema from '../shared/schema.ts';
 import { sql } from 'drizzle-orm';
 
-// Initialize Supabase client
+// Initialize Supabase client with better configuration for handling timeouts
 const supabaseUrl = process.env.SUPABASE_URL || 'https://demo.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'demo-key';
 
@@ -16,28 +16,45 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('Warning: Using demo Supabase credentials. Please configure real credentials in .env file.');
 }
 
-// Create Supabase client
+// Create Supabase client with timeout and retry configurations
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
+    detectSessionInUrl: false
   },
+  global: {
+    headers: {
+      'X-Client-Info': 'investor-properties-ny'
+    }
+  },
+  db: {
+    schema: 'public' // Only valid property for db configuration
+  }
 });
 
 // Create direct PostgreSQL connection for Drizzle ORM
-const demoString = 'postgresql://demo:demo@localhost:5432/demo';
-const connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || demoString;
+const demoConnectionString = 'postgresql://demo:demo@localhost:5432/demo';
+const connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || demoConnectionString;
 
 console.log('Connection string:', connectionString ? 'Configured' : 'Not found');
-console.log('Is demo connection:', connectionString === demoString);
+console.log('Is demo connection:', connectionString === demoConnectionString);
 
-// Connection function with error handling
+// Enhanced connection function with better timeout handling and fallback mechanism
 const createDbConnection = () => {
   try {
     // Force demo mode for testing
     const forceDemoMode = process.env.FORCE_DEMO_MODE === 'true';
-    if (forceDemoMode || !connectionString || connectionString === demoString) {
-      console.log('Running in demo mode with mock data');
+    
+    // Check if we have valid connection strings
+    const hasValidConnection = connectionString && connectionString !== demoConnectionString;
+    
+    if (forceDemoMode || !hasValidConnection) {
+      if (forceDemoMode) {
+        console.log('FORCE_DEMO_MODE is enabled, running in demo mode with mock data');
+      } else {
+        console.log('No valid database connection string found, running in demo mode');
+      }
       // Return mock objects for demo mode
       return { 
         queryClient: null, 
@@ -48,14 +65,18 @@ const createDbConnection = () => {
     console.log('Attempting to connect to database...');
     console.log('Connection string (masked):', connectionString.replace(/:[^:@/]+@/, ':****@'));
     
-    // For direct SQL queries
+    // For direct SQL queries with improved timeout and retry settings
     const queryClient = postgres(connectionString, { 
-      max: 10,
+      max: 1, // Reduced connection pool size to 1
+      idle_timeout: 2, // Connection idle timeout in seconds
+      connect_timeout: 10, // Increased connection timeout to 10 seconds
+      max_lifetime: 60 * 5, // 5 minutes max connection lifetime
+      backoff: (attempt) => Math.min(100 * Math.pow(2, attempt), 2000), // Exponential backoff with higher max
       onnotice: (notice) => {
-        console.log('Database notice:', notice);
-      },
-      debug: (connectionId, query, parameters) => {
-        console.log('Database query:', query, parameters);
+        // Only log important notices in production
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Database notice:', notice);
+        }
       }
     });
     
@@ -71,6 +92,10 @@ const createDbConnection = () => {
     console.warn('2. Database instance not active');
     console.warn('3. Network connectivity issues');
     console.warn('4. Special characters in password not properly encoded');
+    console.warn('5. Firewall restrictions');
+    
+    // Even if Drizzle fails, we can still use Supabase client directly
+    console.log('Falling back to Supabase client only mode');
     return { queryClient: null, db: null };
   }
 };
@@ -78,7 +103,7 @@ const createDbConnection = () => {
 // Create and export the database connection
 export const { queryClient, db } = createDbConnection();
 
-// Helper function to check database connection
+// Improved helper function to check database connection with proper error handling
 export const testDatabaseConnection = async () => {
   try {
     if (!db) {
@@ -86,9 +111,14 @@ export const testDatabaseConnection = async () => {
       return true;
     }
     
-    // Test the connection by running a simple query
+    // Test the connection by running a simple query with timeout
     console.log('Testing database connection with a simple query...');
-    const result = await db.execute(sql`SELECT 1 as test`);
+    const result = await Promise.race([
+      db.execute(sql`SELECT 1 as test`),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database connection test timeout')), 3000)
+      )
+    ]);
     
     console.log('Database connection test successful');
     return true;
@@ -98,20 +128,35 @@ export const testDatabaseConnection = async () => {
   }
 };
 
-// Alternative test function using Supabase client
+// Alternative test function using Supabase client with timeout
 export const testSupabaseConnection = async () => {
   try {
     console.log('Testing Supabase connection...');
     
-    // Test with a simple query
-    const { data, error } = await supabase
+    // Test with a simple query with timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Supabase connection test timeout')), 3000)
+    );
+    
+    const queryPromise = supabase
       .from('users')
       .select('*')
       .limit(1);
     
-    if (error) {
-      console.log('Supabase connection test failed:', error.message);
-      return false;
+    const result = await Promise.race([queryPromise, timeoutPromise]) as any;
+    
+    if (result.error) {
+      // Try a fallback query if users table doesn't exist
+      const fallbackQueryPromise = supabase.rpc('version');
+      const fallbackResult = await Promise.race([fallbackQueryPromise, timeoutPromise]) as any;
+      
+      if (fallbackResult.error) {
+        console.log('Supabase connection test failed:', result.error.message);
+        return false;
+      }
+      
+      console.log('Supabase connection test successful with fallback');
+      return true;
     }
     
     console.log('Supabase connection test successful');
@@ -120,4 +165,35 @@ export const testSupabaseConnection = async () => {
     console.error('Supabase connection test failed:', error instanceof Error ? error.message : String(error));
     return false;
   }
+};
+
+// Add a health check function with timeout
+export const databaseHealthCheck = async () => {
+  try {
+    if (!db) {
+      return { status: 'demo', message: 'Running in demo mode' };
+    }
+    
+    // Simple query to check if database is responsive with timeout
+    const result = await Promise.race([
+      db.execute(sql`SELECT 1`),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database health check timeout')), 2000)
+      )
+    ]);
+    
+    return { status: 'healthy', message: 'Database connection is active' };
+  } catch (error) {
+    return { 
+      status: 'unhealthy', 
+      message: 'Database connection failed',
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+};
+
+// Add a function to force demo mode if needed
+export const forceDemoMode = () => {
+  console.log('Forcing demo mode due to database connectivity issues');
+  return { queryClient: null, db: null };
 };

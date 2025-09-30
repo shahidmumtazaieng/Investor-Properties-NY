@@ -9,6 +9,7 @@ import authRoutes from "./auth-routes.ts";
 import adminRoutes from "./admin-routes.ts";
 import publicRoutes from "./public-routes.ts";
 import { DatabaseRepository } from "./database-repository.ts";
+import { databaseHealthCheck } from "./database.ts";
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -81,9 +82,26 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is running', timestamp: new Date().toISOString() });
+// Health check endpoint with database status
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check database health
+    const dbHealth = await databaseHealthCheck();
+    
+    res.status(200).json({ 
+      status: 'ok', 
+      message: 'Server is running', 
+      timestamp: new Date().toISOString(),
+      database: dbHealth
+    });
+  } catch (error) {
+    res.status(200).json({ 
+      status: 'ok', 
+      message: 'Server is running', 
+      timestamp: new Date().toISOString(),
+      database: { status: 'unknown', message: 'Health check failed' }
+    });
+  }
 });
 
 // Authentication routes

@@ -100,11 +100,10 @@ const ChatBot: React.FC<ChatBotProps> = ({ isOpen, onClose }) => {
                     </label>
                     <input
                       type="text"
-                      id="name"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
-                      required
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Your name"
                     />
                   </div>
                   <div>
@@ -113,11 +112,10 @@ const ChatBot: React.FC<ChatBotProps> = ({ isOpen, onClose }) => {
                     </label>
                     <input
                       type="email"
-                      id="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
-                      required
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Your email"
                     />
                   </div>
                   <div className="flex space-x-3 pt-2">

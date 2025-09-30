@@ -39,7 +39,21 @@ const SecurityMonitoring: React.FC = () => {
 
   const fetchSecurityEvents = async () => {
     try {
-      // Simulate API call
+      const response = await fetch('/api/admin/security/events', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch security events');
+      }
+      
+      const data = await response.json();
+      setEvents(data);
+      setFilteredEvents(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching security events:', error);
+      // Fallback to mock data
       const mockEvents: SecurityEvent[] = [
         {
           id: '1',
@@ -82,9 +96,6 @@ const SecurityMonitoring: React.FC = () => {
       setEvents(mockEvents);
       setFilteredEvents(mockEvents);
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching security events:', error);
-      setLoading(false);
     }
   };
 
@@ -113,10 +124,38 @@ const SecurityMonitoring: React.FC = () => {
     setFilteredEvents(result);
   }, [searchTerm, typeFilter, statusFilter, events]);
 
-  const handleEventAction = (eventId: string, action: string) => {
-    // Simulate event action
-    console.log(`Action ${action} performed on event ${eventId}`);
-    alert(`Action ${action} performed on event ${eventId}`);
+  const handleEventAction = async (eventId: string, action: string) => {
+    try {
+      const response = await fetch(`/api/admin/security/events/${eventId}/resolve`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to perform action on security event');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        // Update the event status in the local state
+        setEvents(prevEvents => 
+          prevEvents.map(event => 
+            event.id === eventId ? { ...event, status: data.status } : event
+          )
+        );
+        setFilteredEvents(prevEvents => 
+          prevEvents.map(event => 
+            event.id === eventId ? { ...event, status: data.status } : event
+          )
+        );
+        alert(`Action ${action} performed on event ${eventId}`);
+      } else {
+        alert(`Failed to perform action: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error performing action on security event:', error);
+      alert('Network error. Please try again.');
+    }
   };
 
   if (!user || user.userType !== 'admin') {
@@ -220,7 +259,7 @@ const SecurityMonitoring: React.FC = () => {
                   type="text"
                   placeholder="Search events..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div>
@@ -234,7 +273,7 @@ const SecurityMonitoring: React.FC = () => {
                     { value: 'suspicious_activity', label: 'Suspicious Activity' }
                   ]}
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTypeFilter(e.target.value)}
                 />
               </div>
               <div>
@@ -247,7 +286,7 @@ const SecurityMonitoring: React.FC = () => {
                     { value: 'investigating', label: 'Investigating' }
                   ]}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
                 />
               </div>
               <div className="flex items-end">

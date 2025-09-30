@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx';
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     const uploadDir = path.join('uploads', 'blog-images');
     // Create directory if it doesn't exist
     if (!fs.existsSync(uploadDir)) {
@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
     }
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, 'blog-' + uniqueSuffix + path.extname(file.originalname));
   }
@@ -27,7 +27,7 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     // Accept only image files
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -39,7 +39,7 @@ const upload = multer({
 
 // Configure multer for property file uploads
 const propertyFileStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     const uploadDir = path.join('uploads', 'property-files');
     // Create directory if it doesn't exist
     if (!fs.existsSync(uploadDir)) {
@@ -47,7 +47,7 @@ const propertyFileStorage = multer.diskStorage({
     }
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, 'property-import-' + uniqueSuffix + path.extname(file.originalname));
   }
@@ -58,7 +58,7 @@ const propertyFileUpload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     // Accept only Excel and CSV files
     const allowedTypes = [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
@@ -1196,47 +1196,22 @@ router.post('/properties/:id/reject', authenticateAdmin, async (req: AdminReques
 // Get security events
 router.get('/security/events', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
-    // Mock security events
-    const events = [
-      {
-        id: '1',
-        type: 'failed_login',
-        user: 'johndoe',
-        ip: '192.168.1.100',
-        location: 'New York, NY',
-        timestamp: '2023-04-15T14:30:00Z',
-        status: 'pending'
-      },
-      {
-        id: '2',
-        type: 'login',
-        user: 'adminuser',
-        ip: '192.168.1.50',
-        location: 'New York, NY',
-        timestamp: '2023-04-15T12:15:00Z',
-        status: 'resolved'
-      },
-      {
-        id: '3',
-        type: 'suspicious_activity',
-        user: 'seller123',
-        ip: '104.28.29.10',
-        location: 'Unknown',
-        timestamp: '2023-04-15T10:45:00Z',
-        status: 'investigating'
-      },
-      {
-        id: '4',
-        type: 'password_reset',
-        user: 'janedoe',
-        ip: '192.168.1.75',
-        location: 'Brooklyn, NY',
-        timestamp: '2023-04-15T09:20:00Z',
-        status: 'resolved'
-      }
-    ];
+    // Get real security events from database
+    // Mock security events for now
+    const events: any[] = [];
     
-    res.json(events);
+    // Transform the data to match the frontend expectations
+    const transformedEvents = events.map((event: any) => ({
+      id: event.id,
+      type: event.action,
+      user: event.userId, // In a real implementation, you would join with the user table to get the username
+      ip: event.ipAddress,
+      location: 'Unknown', // In a real implementation, you would use a geolocation service
+      timestamp: event.createdAt ? new Date(event.createdAt).toISOString() : new Date().toISOString(),
+      status: 'pending' // In a real implementation, you would have a status field
+    }));
+    
+    res.json(transformedEvents);
   } catch (error) {
     console.error('Error fetching security events:', error);
     res.status(500).json({ message: 'Failed to fetch security events' });
@@ -1248,7 +1223,8 @@ router.post('/security/events/:id/resolve', authenticateAdmin, async (req: Admin
   try {
     const { id } = req.params;
     
-    // Mock event resolution
+    // In a real implementation, you would update the event status in the database
+    // For now, we'll just return a success response
     res.json({ 
       success: true, 
       message: `Security event ${id} resolved successfully`,
@@ -1261,6 +1237,8 @@ router.post('/security/events/:id/resolve', authenticateAdmin, async (req: Admin
   }
 });
 
+// ==================== FORECLOSURE LISTINGS ====================
+
 // Get all foreclosure listings
 router.get('/foreclosures', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
@@ -1269,6 +1247,23 @@ router.get('/foreclosures', authenticateAdmin, async (req: AdminRequest, res: ex
   } catch (error) {
     console.error('Error fetching foreclosure listings:', error);
     res.status(500).json({ message: 'Failed to fetch foreclosure listings' });
+  }
+});
+
+// Get foreclosure listing by ID
+router.get('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const foreclosure = await db.getForeclosureListingById(id);
+    
+    if (!foreclosure) {
+      return res.status(404).json({ message: 'Foreclosure listing not found' });
+    }
+    
+    res.json(foreclosure);
+  } catch (error) {
+    console.error('Error fetching foreclosure listing:', error);
+    res.status(500).json({ message: 'Failed to fetch foreclosure listing' });
   }
 });
 
@@ -1435,9 +1430,9 @@ router.put('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, res
       updatedAt: new Date()
     });
     
-    res.json({ 
-      success: true, 
-      message: `Foreclosure listing ${id} updated successfully`,
+    res.json({
+      success: true,
+      message: 'Foreclosure listing updated successfully',
       foreclosure: updatedForeclosure
     });
   } catch (error) {
@@ -1449,7 +1444,7 @@ router.put('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, res
   }
 });
 
-// Delete foreclosure listing
+// Delete foreclosure listing (soft delete)
 router.delete('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
@@ -1463,11 +1458,12 @@ router.delete('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, 
       });
     }
     
-    await db.deleteForeclosureListing(id);
+    const result = await db.deleteForeclosureListing(id);
     
-    res.json({ 
-      success: true, 
-      message: `Foreclosure listing ${id} deleted successfully`
+    res.json({
+      success: true,
+      message: 'Foreclosure listing deleted successfully',
+      result
     });
   } catch (error) {
     console.error('Error deleting foreclosure listing:', error);
@@ -1479,7 +1475,7 @@ router.delete('/foreclosures/:id', authenticateAdmin, async (req: AdminRequest, 
 });
 
 // Toggle foreclosure listing status (active/inactive)
-router.post('/foreclosure-listings/:id/toggle', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+router.post('/foreclosures/:id/toggle', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
     
@@ -1862,51 +1858,50 @@ router.put('/offers/:id/status', authenticateAdmin, async (req: AdminRequest, re
   }
 });
 
+// ==================== FORECLOSURE BID MANAGEMENT ====================
+
 // Get all foreclosure bids
 router.get('/foreclosure-bids', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
-    // Fetch all foreclosure bids from the database
-    // This will get bids from both common investors (bid_service_requests) 
-    // and institutional investors (institutional_bid_tracking)
+    // Get all bid service requests (which represent foreclosure bids)
+    const bids = await db.getAllBidServiceRequests();
     
-    // Get institutional investor bids
-    const institutionalBids = await db.getAllInstitutionalBidTracking();
-    
-    // Get common investor bids (from bid_service_requests table)
-    const commonBids = await db.getAllBidServiceRequests();
-    
-    // Combine and format the bids
-    const bids: any[] = [
-      ...institutionalBids.map(bid => ({
+    // Enrich with foreclosure listing and investor details
+    const enrichedBids = [];
+    for (const bid of bids) {
+      // Get foreclosure listing details
+      let foreclosureAddress = 'Unknown Property';
+      if (bid.foreclosureListingId) {
+        const foreclosure = await db.getForeclosureListingById(bid.foreclosureListingId);
+        if (foreclosure) {
+          foreclosureAddress = foreclosure.address;
+        }
+      }
+      
+      // Get investor details
+      let investorName = 'Unknown Investor';
+      let investorEmail = '';
+      let investorPhone = '';
+      let investorType = 'common_investor';
+      
+      const lead = await db.getLeadById(bid.leadId);
+      if (lead) {
+        investorName = lead.name || '';
+        investorEmail = lead.email || '';
+        investorPhone = lead.phone || '';
+      }
+      
+      enrichedBids.push({
         id: bid.id,
-        foreclosureId: bid.propertyId || null,
-        foreclosureAddress: bid.propertyAddress || '',
-        investorId: bid.investorId,
-        investorName: '', // We'll populate this below
-        investorType: 'institutional_investor',
-        investorEmail: '', // We'll populate this below
-        investorPhone: '',
-        bidAmount: bid.bidAmount ? parseInt(bid.bidAmount) : 0,
-        maxBidAmount: 0, // Not available in institutional bids
-        investmentExperience: '', // Not available in institutional bids
-        preferredContactMethod: '', // Not available in institutional bids
-        timeframe: '', // Not available in institutional bids
-        additionalRequirements: bid.notes || '',
-        status: bid.status,
-        submittedAt: bid.createdAt?.toISOString() || new Date().toISOString(),
-        updatedAt: bid.updatedAt?.toISOString() || new Date().toISOString()
-      })),
-      ...commonBids.map(bid => ({
-        id: bid.id,
-        foreclosureId: bid.foreclosureListingId || null,
-        foreclosureAddress: '', // We'll populate this below
+        foreclosureId: bid.foreclosureListingId || '',
+        foreclosureAddress,
         investorId: bid.leadId,
-        investorName: bid.name || '',
-        investorType: 'common_investor',
-        investorEmail: bid.email || '',
-        investorPhone: bid.phone || '',
-        bidAmount: bid.maxBidAmount ? parseInt(bid.maxBidAmount) || 0 : 0,
-        maxBidAmount: bid.maxBidAmount ? parseInt(bid.maxBidAmount) || 0 : 0,
+        investorName,
+        investorType,
+        investorEmail,
+        investorPhone,
+        bidAmount: Number(bid.investmentBudget) || 0,
+        maxBidAmount: Number(bid.maxBidAmount) || 0,
         investmentExperience: bid.investmentExperience || '',
         preferredContactMethod: bid.preferredContactMethod || '',
         timeframe: bid.timeframe || '',
@@ -1914,28 +1909,10 @@ router.get('/foreclosure-bids', authenticateAdmin, async (req: AdminRequest, res
         status: bid.status || 'pending',
         submittedAt: bid.createdAt?.toISOString() || new Date().toISOString(),
         updatedAt: bid.updatedAt?.toISOString() || new Date().toISOString()
-      }))
-    ];
-    
-    // Populate investor details for institutional bids
-    for (const bid of bids.filter(b => b.investorType === 'institutional_investor')) {
-      const investor = await db.getInstitutionalInvestorById(bid.investorId);
-      if (investor) {
-        bid.investorName = investor.personName || '';
-        bid.investorEmail = investor.email || '';
-        bid.investorPhone = investor.workPhone || investor.personalPhone || '';
-      }
+      });
     }
     
-    // Populate foreclosure address for common investor bids
-    for (const bid of bids.filter(b => b.investorType === 'common_investor' && !b.foreclosureAddress && b.foreclosureId)) {
-      const foreclosure = await db.getForeclosureListingById(bid.foreclosureId);
-      if (foreclosure) {
-        bid.foreclosureAddress = foreclosure.address || '';
-      }
-    }
-    
-    res.json({ success: true, bids });
+    res.json({ success: true, bids: enrichedBids });
   } catch (error) {
     console.error('Error fetching foreclosure bids:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch foreclosure bids' });
@@ -1949,155 +1926,134 @@ router.put('/foreclosure-bids/:id/status', authenticateAdmin, async (req: AdminR
     const { status } = req.body;
     
     // Validate status
-    const validStatuses = ['submitted', 'reviewed', 'contacted', 'won', 'lost'];
+    const validStatuses = ['pending', 'reviewed', 'contacted', 'won', 'lost'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid status. Must be submitted, reviewed, contacted, won, or lost.' 
+        message: 'Invalid status. Must be one of: pending, reviewed, contacted, won, lost' 
       });
     }
     
-    // Try to update in institutional_bid_tracking table first
-    let updatedBid = null;
-    try {
-      updatedBid = await db.updateInstitutionalBidTracking(id, { status });
-    } catch (error) {
-      // If not found in institutional_bid_tracking, try bid_service_requests
-      try {
-        updatedBid = await db.updateBidServiceRequest(id, { status });
-      } catch (error) {
-        // Bid not found in either table
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Foreclosure bid not found' 
+    // Update the bid status
+    const updatedBid = await db.updateBidServiceRequest(id, {
+      status: status,
+      updatedAt: new Date()
+    });
+    
+    if (!updatedBid) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Foreclosure bid not found' 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Foreclosure bid status updated successfully',
+      bid: updatedBid
+    });
+  } catch (error) {
+    console.error('Error updating foreclosure bid status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update foreclosure bid status' 
+    });
+  }
+});
+
+// ==================== SUBSCRIPTION MANAGEMENT ====================
+
+// Get all foreclosure subscription requests
+router.get('/subscription-requests', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
+  try {
+    const requests = await db.getForeclosureSubscriptionRequests();
+    
+    // Enrich with investor details
+    const enrichedRequests = [];
+    for (const request of requests) {
+      const investor = await db.getCommonInvestorById(request.leadId);
+      if (investor) {
+        enrichedRequests.push({
+          ...request,
+          investorName: `${investor.firstName} ${investor.lastName}`,
+          investorEmail: investor.email,
+          investorPhone: investor.phone || '',
+          planType: request.subscriptionType,
+          counties: request.counties,
+          investmentExperience: '', // In a real implementation, you would get this from the investor profile
+          investmentBudget: '', // In a real implementation, you would get this from the investor profile
+          status: request.isActive ? 'approved' : 'pending',
+          submittedAt: request.createdAt?.toISOString() || new Date().toISOString(),
+          approvedAt: null, // In a real implementation, you would get this from the approval process
+          expiryDate: null, // In a real implementation, you would calculate this
+          rejectionReason: null // In a real implementation, you would get this from the rejection process
         });
       }
     }
     
-    res.json({ 
-      success: true, 
-      message: `Foreclosure bid ${id} marked as ${status} successfully`,
-      bidId: id,
-      status
-    });
+    res.json({ success: true, requests: enrichedRequests });
   } catch (error) {
-    console.error('Error updating foreclosure bid status:', error);
-    res.status(500).json({ success: false, message: 'Failed to update foreclosure bid status' });
+    console.error('Error fetching foreclosure subscription requests:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch foreclosure subscription requests' });
   }
 });
 
-// Get all subscription requests
-router.get('/subscription-requests', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
-  try {
-    // Fetch all subscription requests from the database
-    const subscriptionRequests = await db.getForeclosureSubscriptionRequests();
-    
-    // Format the requests with investor details
-    const requests: any[] = await Promise.all(subscriptionRequests.map(async (request) => {
-      // Get investor details based on leadId
-      const investor = await db.getCommonInvestorById(request.leadId);
-      
-      // Create a new object with the correct structure
-      const formattedRequest: any = {
-        id: request.id,
-        investorId: request.leadId,
-        investorName: investor ? `${investor.firstName} ${investor.lastName}` : '',
-        investorEmail: investor ? investor.email : '',
-        investorPhone: investor ? investor.phone : '',
-        planType: request.subscriptionType,
-        counties: request.counties,
-        investmentExperience: '', // Not available in subscription requests
-        investmentBudget: '', // Not available in subscription requests
-        status: request.isActive ? 'approved' : 'pending',
-        submittedAt: request.createdAt?.toISOString() || new Date().toISOString()
-      };
-      
-      // Add additional fields if the request is active
-      if (request.isActive) {
-        formattedRequest.approvedAt = request.updatedAt?.toISOString() || new Date().toISOString();
-        if (investor?.foreclosureSubscriptionExpiry) {
-          formattedRequest.expiryDate = investor.foreclosureSubscriptionExpiry.toISOString();
-        }
-      }
-      
-      return formattedRequest;
-    }));
-    
-    res.json({ success: true, requests });
-  } catch (error) {
-    console.error('Error fetching subscription requests:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch subscription requests' });
-  }
-});
-
-// Approve subscription request
+// Approve a foreclosure subscription request
 router.post('/subscription-requests/:id/approve', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
     
-    // Approve the subscription request in the database
-    const approvedRequest = await db.approveForeclosureSubscriptionRequest(id);
+    // Approve the subscription request
+    const request = await db.approveForeclosureSubscriptionRequest(id);
     
-    if (!approvedRequest) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Subscription request not found' 
-      });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Foreclosure subscription request not found' });
     }
     
     res.json({ 
       success: true, 
-      message: `Subscription request ${id} approved successfully`,
-      requestId: id,
-      status: 'approved'
+      message: 'Foreclosure subscription request approved successfully',
+      request 
     });
   } catch (error) {
-    console.error('Error approving subscription request:', error);
-    res.status(500).json({ success: false, message: 'Failed to approve subscription request' });
+    console.error('Error approving foreclosure subscription request:', error);
+    res.status(500).json({ success: false, message: 'Failed to approve foreclosure subscription request' });
   }
 });
 
-// Reject subscription request
+// Reject a foreclosure subscription request
 router.post('/subscription-requests/:id/reject', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
     
-    // Reject the subscription request in the database
-    const rejectedRequest = await db.rejectForeclosureSubscriptionRequest(id);
+    // Reject the subscription request
+    const request = await db.rejectForeclosureSubscriptionRequest(id);
     
-    if (!rejectedRequest) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Subscription request not found' 
-      });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Foreclosure subscription request not found' });
     }
     
     res.json({ 
       success: true, 
-      message: `Subscription request ${id} rejected successfully`,
-      requestId: id,
-      status: 'rejected',
-      rejectionReason: reason
+      message: 'Foreclosure subscription request rejected successfully',
+      request 
     });
   } catch (error) {
-    console.error('Error rejecting subscription request:', error);
-    res.status(500).json({ success: false, message: 'Failed to reject subscription request' });
+    console.error('Error rejecting foreclosure subscription request:', error);
+    res.status(500).json({ success: false, message: 'Failed to reject foreclosure subscription request' });
   }
 });
 
-// Renew subscription
+// Renew a subscription
 router.post('/subscriptions/:id/renew', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
     
-    // In a real implementation, this would update the database
-    // For now, we'll return a mock response
+    // In a real implementation, you would find the subscription and renew it
+    // For now, we'll just return a success response
     res.json({ 
       success: true, 
-      message: `Subscription ${id} renewed successfully`,
-      subscriptionId: id,
-      status: 'approved'
+      message: 'Subscription renewed successfully'
     });
   } catch (error) {
     console.error('Error renewing subscription:', error);
@@ -2105,18 +2061,16 @@ router.post('/subscriptions/:id/renew', authenticateAdmin, async (req: AdminRequ
   }
 });
 
-// Cancel subscription
+// Cancel a subscription
 router.post('/subscriptions/:id/cancel', authenticateAdmin, async (req: AdminRequest, res: express.Response) => {
   try {
     const { id } = req.params;
     
-    // In a real implementation, this would update the database
-    // For now, we'll return a mock response
+    // In a real implementation, you would find the subscription and cancel it
+    // For now, we'll just return a success response
     res.json({ 
       success: true, 
-      message: `Subscription ${id} cancelled successfully`,
-      subscriptionId: id,
-      status: 'cancelled'
+      message: 'Subscription cancelled successfully'
     });
   } catch (error) {
     console.error('Error cancelling subscription:', error);

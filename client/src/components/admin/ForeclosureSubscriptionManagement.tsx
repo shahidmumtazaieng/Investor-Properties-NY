@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import Textarea from '../ui/Textarea';
 
 interface SubscriptionRequest {
   id: string;
@@ -272,7 +273,7 @@ const ForeclosureSubscriptionManagement: React.FC = () => {
               type="text"
               placeholder="Search requests..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
               className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             {searchTerm && (
@@ -288,7 +289,7 @@ const ForeclosureSubscriptionManagement: React.FC = () => {
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value as any)}
             className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="all">All Statuses</option>
@@ -540,12 +541,12 @@ const ForeclosureSubscriptionManagement: React.FC = () => {
                   <span className="font-medium">{selectedRequest.investorName}</span>:
                 </p>
                 <div className="mt-4">
-                  <textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
+                  <Textarea
                     rows={4}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
-                    placeholder="Enter rejection reason..."
+                    value={rejectionReason}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRejectionReason(e.target.value)}
+                    placeholder="Enter reason for rejection..."
+                    required
                   />
                 </div>
               </div>

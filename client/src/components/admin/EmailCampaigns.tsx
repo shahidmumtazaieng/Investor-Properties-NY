@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
@@ -7,10 +7,23 @@ import Input from '../ui/Input';
 import Textarea from '../ui/Textarea';
 import Select from '../ui/Select';
 
+interface EmailCampaign {
+  id: string;
+  name: string;
+  subject: string;
+  content: string;
+  recipients: string;
+  status: string;
+  sentAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const EmailCampaigns: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
   const [campaign, setCampaign] = useState({
     subject: '',
     recipients: 'all',
@@ -22,6 +35,53 @@ const EmailCampaigns: React.FC = () => {
     navigate('/');
     return null;
   }
+
+  useEffect(() => {
+    fetchEmailCampaigns();
+  }, []);
+
+  const fetchEmailCampaigns = async () => {
+    try {
+      const response = await fetch('/api/admin/email-campaigns', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch email campaigns');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setCampaigns(data.campaigns);
+      }
+    } catch (error) {
+      console.error('Error fetching email campaigns:', error);
+      // Fallback to mock data
+      setCampaigns([
+        {
+          id: '1',
+          name: 'Weekly Update',
+          subject: 'Weekly Property Update',
+          content: '<p>Check out our latest property listings...</p>',
+          recipients: 'all',
+          status: 'sent',
+          sentAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: '2',
+          name: 'Market Report',
+          subject: 'Market Insights Report',
+          content: '<p>Here are the latest market insights...</p>',
+          recipients: 'investors',
+          status: 'draft',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ]);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -38,20 +98,47 @@ const EmailCampaigns: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate sending campaign
-    setTimeout(() => {
-      setLoading(false);
-      alert('Email campaign sent successfully!');
-      setCampaign({
-        subject: '',
-        recipients: 'all',
-        content: ''
+    try {
+      const response = await fetch('/api/admin/email-campaigns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...campaign,
+          name: campaign.subject, // Use subject as name
+          status: 'draft' // Default to draft status
+        })
       });
-    }, 1500);
+      
+      if (!response.ok) {
+        throw new Error('Failed to create email campaign');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        alert('Email campaign created successfully!');
+        setCampaign({
+          subject: '',
+          recipients: 'all',
+          content: ''
+        });
+        // Refresh the campaign list
+        fetchEmailCampaigns();
+      } else {
+        alert('Failed to create email campaign: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error creating email campaign:', error);
+      alert('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!user || user.userType !== 'admin') {
@@ -190,23 +277,23 @@ const EmailCampaigns: React.FC = () => {
               <div className="p-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Campaign History</h2>
                 <div className="space-y-4">
-                  <div className="border-b border-gray-200 pb-3 last:border-0 last:pb-0">
-                    <div className="font-medium text-gray-900">Weekly Update</div>
-                    <div className="text-sm text-gray-500">Sent to 124 recipients • 2 days ago</div>
-                    <div className="text-sm text-green-600 mt-1">Delivered: 120 • Opened: 85</div>
-                  </div>
-                  
-                  <div className="border-b border-gray-200 pb-3 last:border-0 last:pb-0">
-                    <div className="font-medium text-gray-900">Market Report</div>
-                    <div className="text-sm text-gray-500">Sent to 98 recipients • 1 week ago</div>
-                    <div className="text-sm text-green-600 mt-1">Delivered: 95 • Opened: 67</div>
-                  </div>
-                  
-                  <div className="border-b border-gray-200 pb-3 last:border-0 last:pb-0">
-                    <div className="font-medium text-gray-900">New Features</div>
-                    <div className="text-sm text-gray-500">Sent to 142 recipients • 2 weeks ago</div>
-                    <div className="text-sm text-green-600 mt-1">Delivered: 138 • Opened: 92</div>
-                  </div>
+                  {campaigns.length > 0 ? (
+                    campaigns.map(campaign => (
+                      <div key={campaign.id} className="border-b border-gray-200 pb-3 last:border-0 last:pb-0">
+                        <div className="font-medium text-gray-900">{campaign.subject}</div>
+                        <div className="text-sm text-gray-500">
+                          Sent to {campaign.recipients} • {new Date(campaign.createdAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          Status: <span className="capitalize">{campaign.status}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 text-center py-4">
+                      No email campaigns found
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>

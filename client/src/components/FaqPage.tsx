@@ -166,10 +166,9 @@ const FaqPage: React.FC = () => {
             <div className="relative max-w-xl mx-auto">
               <input
                 type="text"
-                placeholder="Search FAQs..."
-                className="w-full px-6 py-4 rounded-2xl border border-neutral-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-300 text-lg"
+                placeholder="Search FAQ..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
               />
               <MagnifyingGlassIcon className="absolute right-6 top-1/2 transform -translate-y-1/2 w-6 h-6 text-neutral-400" />
             </div>
@@ -237,7 +236,7 @@ const FaqPage: React.FC = () => {
                             <Link 
                               to={faq.relatedLink.url} 
                               className="text-accent-yellow hover:text-accent-yellow-dark font-medium inline-flex items-center"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
                             >
                               {faq.relatedLink.text}
                             </Link>

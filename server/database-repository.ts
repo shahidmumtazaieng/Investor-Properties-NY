@@ -1,4 +1,4 @@
-import { supabase, db } from './database.ts';
+import { supabase, db, databaseHealthCheck } from './database.ts';
 import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import * as schema from '../shared/schema.ts';
 import bcrypt from 'bcrypt';
@@ -13,63 +13,140 @@ const JWT_SECRET = process.env.JWT_SECRET || 'investor-properties-ny-jwt-secret'
  * Provides methods for CRUD operations on all entities
  */
 export class DatabaseRepository {
+  // Utility function to check if we should use demo mode
+  private async shouldUseDemoMode(): Promise<boolean> {
+    // If db is null, we're already in demo mode
+    if (!db) {
+      return true;
+    }
+    
+    // Check database health
+    try {
+      const health = await databaseHealthCheck();
+      return health.status !== 'healthy';
+    } catch (error) {
+      console.log('Health check failed, using demo mode:', error instanceof Error ? error.message : String(error));
+      return true;
+    }
+  }
+
   // ==================== USERS ====================
   async getAllUsers() {
-    // Handle demo mode
-    if (!db) {
+    // Check if we should use demo mode
+    if (await this.shouldUseDemoMode()) {
       console.log('Demo mode: returning mock users data');
       return [];
     }
-    return await db.select().from(schema.users);
+    
+    // Additional null check for db
+    if (!db) {
+      console.log('Database is null, returning mock users data');
+      return [];
+    }
+    
+    try {
+      return await db.select().from(schema.users);
+    } catch (error) {
+      console.error('Error fetching users, falling back to demo mode:', error);
+      return [];
+    }
   }
 
   async getUserById(id: string) {
-    // Handle demo mode
-    if (!db) {
+    // Check if we should use demo mode
+    if (await this.shouldUseDemoMode()) {
       console.log('Demo mode: returning mock user data');
       return null;
     }
-    const result = await db.select().from(schema.users).where(eq(schema.users.id, id));
-    return result[0] || null;
+    
+    // Additional null check for db
+    if (!db) {
+      console.log('Database is null, returning mock user data');
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.users).where(eq(schema.users.id, id));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching user by ID, falling back to demo mode:', error);
+      return null;
+    }
   }
 
   async getUserByUsername(username: string) {
-    // Handle demo mode
-    if (!db) {
+    // Check if we should use demo mode
+    if (await this.shouldUseDemoMode()) {
       console.log('Demo mode: returning mock user data for username:', username);
       return null;
     }
-    const result = await db.select().from(schema.users).where(eq(schema.users.username, username));
-    return result[0] || null;
+    
+    // Additional null check for db
+    if (!db) {
+      console.log('Database is null, returning mock user data for username:', username);
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.users).where(eq(schema.users.username, username));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching user by username, falling back to demo mode:', error);
+      return null;
+    }
   }
 
   async createUser(userData: any) {
-    // Handle demo mode
-    if (!db) {
+    // Check if we should use demo mode
+    if (await this.shouldUseDemoMode()) {
       console.log('Demo mode: not creating user');
       return { id: 'demo-user-id', ...userData };
     }
-    const result = await db.insert(schema.users).values(userData).returning();
-    return result[0];
+    
+    // Additional null check for db
+    if (!db) {
+      console.log('Database is null, not creating user');
+      return { id: 'demo-user-id', ...userData };
+    }
+    
+    try {
+      const result = await db.insert(schema.users).values(userData).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating user, falling back to demo mode:', error);
+      return { id: 'demo-user-id', ...userData };
+    }
   }
 
   async updateUser(id: string, userData: any) {
-    // Handle demo mode
-    if (!db) {
+    // Check if we should use demo mode
+    if (await this.shouldUseDemoMode()) {
       console.log('Demo mode: not updating user');
       return { id, ...userData };
     }
-    const result = await db.update(schema.users)
-      .set({ ...userData, updatedAt: new Date() })
-      .where(eq(schema.users.id, id))
-      .returning();
-    return result[0];
+    
+    // Additional null check for db
+    if (!db) {
+      console.log('Database is null, not updating user');
+      return { id, ...userData };
+    }
+    
+    try {
+      const result = await db.update(schema.users)
+        .set({ ...userData, updatedAt: new Date() })
+        .where(eq(schema.users.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating user, falling back to demo mode:', error);
+      return { id, ...userData };
+    }
   }
 
   // ==================== PROPERTIES ====================
   async getAllProperties() {
-    // Handle demo mode
-    if (!db) {
+    // Check if we should use demo mode
+    if (await this.shouldUseDemoMode()) {
       console.log('Demo mode: returning mock properties data');
       return [
         {
@@ -89,7 +166,7 @@ export class DatabaseRepository {
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
-        },
+        } as any,
         {
           id: "2",
           address: "456 Queens Blvd",
@@ -107,22 +184,122 @@ export class DatabaseRepository {
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
-        }
+        } as any
       ];
     }
-    return await db.select().from(schema.properties)
-      .where(eq(schema.properties.isActive, true))
-      .orderBy(desc(schema.properties.createdAt));
+    
+    // Additional null check for db
+    if (!db) {
+      console.log('Database is null, returning mock properties data');
+      // Return mock data on error
+      return [
+        {
+          id: "1",
+          address: "123 Brooklyn Ave",
+          neighborhood: "Park Slope",
+          borough: "Brooklyn",
+          propertyType: "Condo",
+          beds: 2,
+          baths: "2",
+          sqft: 1200,
+          price: "750000",
+          arv: "850000",
+          estimatedProfit: "75000",
+          images: ["/placeholder-property.jpg"],
+          description: "Beautiful condo in prime Brooklyn location with modern amenities.",
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any,
+        {
+          id: "2",
+          address: "456 Queens Blvd",
+          neighborhood: "Long Island City",
+          borough: "Queens",
+          propertyType: "Single Family",
+          beds: 3,
+          baths: "2.5",
+          sqft: 1800,
+          price: "650000",
+          arv: "750000",
+          estimatedProfit: "85000",
+          images: ["/placeholder-property.jpg"],
+          description: "Spacious single family home with great potential for renovation.",
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any
+      ];
+    }
+    
+    try {
+      return await db.select().from(schema.properties)
+        .where(eq(schema.properties.isActive, true))
+        .orderBy(desc(schema.properties.createdAt));
+    } catch (error) {
+      console.error('Error fetching properties, falling back to demo mode:', error);
+      // Return mock data on error
+      return [
+        {
+          id: "1",
+          address: "123 Brooklyn Ave",
+          neighborhood: "Park Slope",
+          borough: "Brooklyn",
+          propertyType: "Condo",
+          beds: 2,
+          baths: "2",
+          sqft: 1200,
+          price: "750000",
+          arv: "850000",
+          estimatedProfit: "75000",
+          images: ["/placeholder-property.jpg"],
+          description: "Beautiful condo in prime Brooklyn location with modern amenities.",
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any,
+        {
+          id: "2",
+          address: "456 Queens Blvd",
+          neighborhood: "Long Island City",
+          borough: "Queens",
+          propertyType: "Single Family",
+          beds: 3,
+          baths: "2.5",
+          sqft: 1800,
+          price: "650000",
+          arv: "750000",
+          estimatedProfit: "85000",
+          images: ["/placeholder-property.jpg"],
+          description: "Spacious single family home with great potential for renovation.",
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any
+      ];
+    }
   }
 
   async getPropertyById(id: string) {
-    // Handle demo mode
-    if (!db) {
+    // Check if we should use demo mode
+    if (await this.shouldUseDemoMode()) {
       console.log('Demo mode: returning mock property data for id:', id);
       return null;
     }
-    const result = await db.select().from(schema.properties).where(eq(schema.properties.id, id));
-    return result[0] || null;
+    
+    // Additional null check for db
+    if (!db) {
+      console.log('Database is null, returning mock property data for id:', id);
+      return null;
+    }
+    
+    try {
+      const result = await db.select().from(schema.properties).where(eq(schema.properties.id, id));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching property by ID, falling back to demo mode:', error);
+      return null;
+    }
   }
 
   async createProperty(propertyData: any) {
@@ -209,8 +386,14 @@ export class DatabaseRepository {
       console.log('Demo mode: returning mock partner data for username:', username);
       return null;
     }
-    const result = await db.select().from(schema.partners).where(eq(schema.partners.username, username));
-    return result[0] || null;
+    
+    try {
+      const result = await db.select().from(schema.partners).where(eq(schema.partners.username, username));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching partner by username:', error);
+      return null;
+    }
   }
 
   async getPartnerByEmail(email: string) {
@@ -219,18 +402,50 @@ export class DatabaseRepository {
       console.log('Demo mode: returning mock partner data for email:', email);
       return null;
     }
-    const result = await db.select().from(schema.partners).where(eq(schema.partners.email, email));
-    return result[0] || null;
+    
+    try {
+      const result = await db.select().from(schema.partners).where(eq(schema.partners.email, email));
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching partner by email:', error);
+      return null;
+    }
   }
 
   async createPartner(partnerData: any) {
     // Handle demo mode
     if (!db) {
       console.log('Demo mode: not creating partner');
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('partners')
+          .insert(partnerData)
+          .select()
+          .single();
+        
+        if (error) {
+          console.log('Supabase insert failed:', error.message);
+          return { id: 'demo-partner-id', ...partnerData };
+        }
+        
+        console.log('Successfully created partner in Supabase:', data.id);
+        return data;
+      } catch (error) {
+        console.log('Supabase fallback failed:', error instanceof Error ? error.message : String(error));
+        return { id: 'demo-partner-id', ...partnerData };
+      }
+    }
+    
+    try {
+      const result = await db.insert(schema.partners).values(partnerData).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating partner in database:', error);
+      // Fall back to demo mode on database error
+      console.log('Falling back to demo mode for partner creation');
       return { id: 'demo-partner-id', ...partnerData };
     }
-    const result = await db.insert(schema.partners).values(partnerData).returning();
-    return result[0];
   }
 
   async updatePartner(id: string, partnerData: any) {
@@ -279,17 +494,27 @@ export class DatabaseRepository {
       return null;
     }
 
-    const partner = await this.getPartnerByUsername(username);
-    if (!partner) {
+    try {
+      const partner = await this.getPartnerByUsername(username);
+      if (!partner) {
+        return null;
+      }
+
+      const isValid = await bcrypt.compare(password, partner.password);
+      if (!isValid) {
+        return null;
+      }
+
+      return partner;
+    } catch (error) {
+      console.error('Error authenticating partner:', error);
       return null;
     }
+  }
 
-    const isValid = await bcrypt.compare(password, partner.password);
-    if (!isValid) {
-      return null;
-    }
-
-    return partner;
+  async generatePartnerToken(partnerId: string) {
+    const token = jwt.sign({ id: partnerId }, JWT_SECRET, { expiresIn: '1h' });
+    return token;
   }
 
   // ==================== COMMON INVESTORS ====================

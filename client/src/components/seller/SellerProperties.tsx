@@ -309,7 +309,7 @@ const SellerProperties: React.FC = () => {
                       type="text"
                       required
                       value={propertyForm.address}
-                      onChange={(e) => handlePropertyFormChange('address', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('address', e.target.value)}
                     />
                   </div>
                   <div>
@@ -318,7 +318,7 @@ const SellerProperties: React.FC = () => {
                       type="text"
                       required
                       value={propertyForm.neighborhood}
-                      onChange={(e) => handlePropertyFormChange('neighborhood', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('neighborhood', e.target.value)}
                     />
                   </div>
                   <div>
@@ -333,7 +333,7 @@ const SellerProperties: React.FC = () => {
                         { value: 'Staten Island', label: 'Staten Island' }
                       ]}
                       value={propertyForm.borough}
-                      onChange={(e) => handlePropertyFormChange('borough', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handlePropertyFormChange('borough', e.target.value)}
                       required
                     />
                   </div>
@@ -349,7 +349,7 @@ const SellerProperties: React.FC = () => {
                         { value: 'Commercial', label: 'Commercial' }
                       ]}
                       value={propertyForm.propertyType}
-                      onChange={(e) => handlePropertyFormChange('propertyType', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handlePropertyFormChange('propertyType', e.target.value)}
                       required
                     />
                   </div>
@@ -359,17 +359,17 @@ const SellerProperties: React.FC = () => {
                       type="number"
                       min="0"
                       value={propertyForm.beds}
-                      onChange={(e) => handlePropertyFormChange('beds', parseInt(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('beds', parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Bathrooms</label>
                     <Input
                       type="number"
-                      min="0"
                       step="0.5"
+                      min="0"
                       value={propertyForm.baths}
-                      onChange={(e) => handlePropertyFormChange('baths', parseFloat(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('baths', parseFloat(e.target.value) || 0)}
                     />
                   </div>
                   <div>
@@ -378,7 +378,7 @@ const SellerProperties: React.FC = () => {
                       type="number"
                       min="0"
                       value={propertyForm.sqft}
-                      onChange={(e) => handlePropertyFormChange('sqft', parseInt(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('sqft', parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
@@ -386,9 +386,8 @@ const SellerProperties: React.FC = () => {
                     <Input
                       type="number"
                       min="0"
-                      required
                       value={propertyForm.price}
-                      onChange={(e) => handlePropertyFormChange('price', parseInt(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePropertyFormChange('price', parseInt(e.target.value) || 0)}
                     />
                   </div>
                 </div>
@@ -398,7 +397,7 @@ const SellerProperties: React.FC = () => {
                   <Textarea
                     rows={4}
                     value={propertyForm.description}
-                    onChange={(e) => handlePropertyFormChange('description', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handlePropertyFormChange('description', e.target.value)}
                   />
                 </div>
 
@@ -408,9 +407,20 @@ const SellerProperties: React.FC = () => {
                     <Input
                       type="text"
                       value={newFeature}
-                      onChange={(e) => setNewFeature(e.target.value)}
-                      placeholder="Add a feature"
-                      className="flex-grow"
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFeature(e.target.value)}
+                      placeholder="Enter a feature (e.g., 'Hardwood Floors')"
+                      onKeyPress={(e: React.KeyboardEvent) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (newFeature.trim()) {
+                            setPropertyForm(prev => ({
+                              ...prev,
+                              features: [...prev.features, newFeature.trim()]
+                            }));
+                            setNewFeature('');
+                          }
+                        }
+                      }}
                     />
                     <Button
                       type="button"

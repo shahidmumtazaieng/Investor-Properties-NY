@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import Textarea from '../ui/Textarea';
 
 interface Offer {
   id: string;
@@ -259,12 +260,12 @@ const SellerOffers: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {responseAction === 'reject' ? 'Rejection Reason' : 'Message to Investor'}
                     </label>
-                    <textarea
+                    <Textarea
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue"
-                      placeholder={responseAction === 'reject' ? 'Enter rejection reason' : 'Enter your message to the investor'}
-                      value={responseMessage || ''}
-                      onChange={(e) => setResponseMessage(e.target.value)}
+                      value={responseMessage}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setResponseMessage(e.target.value)}
+                      placeholder="Enter your response to the investor..."
+                      required
                     />
                   </div>
                   

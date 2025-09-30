@@ -153,21 +153,21 @@ const PropertyApproval: React.FC = () => {
                   type="text"
                   placeholder="Search properties..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <Select
-                  options={[
-                    { value: 'all', label: 'All Statuses' },
-                    { value: 'pending', label: 'Pending' },
-                    { value: 'approved', label: 'Approved' },
-                    { value: 'rejected', label: 'Rejected' }
-                  ]}
+                <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                />
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
               </div>
               <div className="flex items-end">
                 <Button 

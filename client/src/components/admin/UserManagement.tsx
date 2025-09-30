@@ -254,7 +254,7 @@ const UserManagement: React.FC = () => {
                   type="text"
                   placeholder="Search users..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div>
@@ -268,7 +268,7 @@ const UserManagement: React.FC = () => {
                     { value: 'admin', label: 'Admin' }
                   ]}
                   value={userTypeFilter}
-                  onChange={(e) => setUserTypeFilter(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setUserTypeFilter(e.target.value)}
                 />
               </div>
               <div>
@@ -281,7 +281,7 @@ const UserManagement: React.FC = () => {
                     { value: 'suspended', label: 'Suspended' }
                   ]}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
                 />
               </div>
               <div className="flex items-end">

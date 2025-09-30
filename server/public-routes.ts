@@ -4,13 +4,15 @@ import { DatabaseRepository } from './database-repository.ts';
 const router = express.Router();
 const db = new DatabaseRepository();
 
-// Get all properties (public)
+// Get all properties (public) with improved error handling
 router.get('/properties', async (req: express.Request, res: express.Response) => {
   try {
+    console.log('Fetching properties from database...');
     const properties = await db.getAllProperties();
+    console.log(`Successfully fetched ${Array.isArray(properties) ? properties.length : 0} properties`);
     
     // Transform data to match frontend expectations
-    const transformedProperties = properties.map((property: any) => ({
+    const transformedProperties = Array.isArray(properties) ? properties.map((property: any) => ({
       id: property.id,
       address: property.address,
       neighborhood: property.neighborhood,
@@ -30,7 +32,7 @@ router.get('/properties', async (req: express.Request, res: express.Response) =>
       description: property.description,
       status: property.status,
       createdAt: property.createdAt
-    }));
+    })) : [];
     
     res.json(transformedProperties);
   } catch (error) {
@@ -257,9 +259,9 @@ router.get('/properties/:id/similar', async (req: express.Request, res: express.
     const allProperties = await db.getAllProperties();
     
     // Filter out the current property and get up to 3 similar ones
-    const similarProperties = allProperties
+    const similarProperties = Array.isArray(allProperties) ? allProperties
       .filter((property: any) => property.id !== id)
-      .slice(0, 3);
+      .slice(0, 3) : [];
     
     // Transform data to match frontend expectations
     const transformedProperties = similarProperties.map((property: any) => ({

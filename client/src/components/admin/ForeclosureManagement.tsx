@@ -502,7 +502,7 @@ const ForeclosureManagement: React.FC = () => {
                       type="text"
                       required
                       value={foreclosureForm.address}
-                      onChange={(e) => handleForeclosureFormChange('address', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('address', e.target.value)}
                     />
                   </div>
                   <div>
@@ -519,7 +519,7 @@ const ForeclosureManagement: React.FC = () => {
                         { value: 'Suffolk', label: 'Suffolk' }
                       ]}
                       value={foreclosureForm.county}
-                      onChange={(e) => handleForeclosureFormChange('county', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleForeclosureFormChange('county', e.target.value)}
                       required
                     />
                   </div>
@@ -529,7 +529,7 @@ const ForeclosureManagement: React.FC = () => {
                       type="date"
                       required
                       value={foreclosureForm.auctionDate}
-                      onChange={(e) => handleForeclosureFormChange('auctionDate', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('auctionDate', e.target.value)}
                     />
                   </div>
                   <div>
@@ -538,7 +538,7 @@ const ForeclosureManagement: React.FC = () => {
                       type="text"
                       required
                       value={foreclosureForm.startingBid}
-                      onChange={(e) => handleForeclosureFormChange('startingBid', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('startingBid', e.target.value)}
                     />
                   </div>
                   <div>
@@ -546,7 +546,7 @@ const ForeclosureManagement: React.FC = () => {
                     <Input
                       type="text"
                       value={foreclosureForm.assessedValue}
-                      onChange={(e) => handleForeclosureFormChange('assessedValue', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('assessedValue', e.target.value)}
                     />
                   </div>
                   <div>
@@ -561,7 +561,7 @@ const ForeclosureManagement: React.FC = () => {
                         { value: 'Commercial', label: 'Commercial' }
                       ]}
                       value={foreclosureForm.propertyType}
-                      onChange={(e) => handleForeclosureFormChange('propertyType', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleForeclosureFormChange('propertyType', e.target.value)}
                       required
                     />
                   </div>
@@ -571,7 +571,7 @@ const ForeclosureManagement: React.FC = () => {
                       type="number"
                       min="0"
                       value={foreclosureForm.beds}
-                      onChange={(e) => handleForeclosureFormChange('beds', parseInt(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('beds', parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
@@ -579,7 +579,7 @@ const ForeclosureManagement: React.FC = () => {
                     <Input
                       type="text"
                       value={foreclosureForm.baths}
-                      onChange={(e) => handleForeclosureFormChange('baths', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('baths', e.target.value)}
                     />
                   </div>
                   <div>
@@ -588,7 +588,7 @@ const ForeclosureManagement: React.FC = () => {
                       type="number"
                       min="0"
                       value={foreclosureForm.sqft}
-                      onChange={(e) => handleForeclosureFormChange('sqft', parseInt(e.target.value) || 0)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('sqft', parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
@@ -598,7 +598,7 @@ const ForeclosureManagement: React.FC = () => {
                       min="1800"
                       max={new Date().getFullYear()}
                       value={foreclosureForm.yearBuilt}
-                      onChange={(e) => handleForeclosureFormChange('yearBuilt', parseInt(e.target.value) || new Date().getFullYear())}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('yearBuilt', parseInt(e.target.value) || new Date().getFullYear())}
                     />
                   </div>
                   <div>
@@ -606,7 +606,7 @@ const ForeclosureManagement: React.FC = () => {
                     <Input
                       type="text"
                       value={foreclosureForm.docketNumber}
-                      onChange={(e) => handleForeclosureFormChange('docketNumber', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('docketNumber', e.target.value)}
                     />
                   </div>
                   <div>
@@ -614,7 +614,7 @@ const ForeclosureManagement: React.FC = () => {
                     <Input
                       type="text"
                       value={foreclosureForm.plaintiff}
-                      onChange={(e) => handleForeclosureFormChange('plaintiff', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleForeclosureFormChange('plaintiff', e.target.value)}
                     />
                   </div>
                   <div>
@@ -626,7 +626,7 @@ const ForeclosureManagement: React.FC = () => {
                         { value: 'cancelled', label: 'Cancelled' }
                       ]}
                       value={foreclosureForm.status}
-                      onChange={(e) => handleForeclosureFormChange('status', e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleForeclosureFormChange('status', e.target.value)}
                     />
                   </div>
                 </div>
@@ -636,7 +636,7 @@ const ForeclosureManagement: React.FC = () => {
                   <Textarea
                     rows={4}
                     value={foreclosureForm.description}
-                    onChange={(e) => handleForeclosureFormChange('description', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleForeclosureFormChange('description', e.target.value)}
                   />
                 </div>
 
