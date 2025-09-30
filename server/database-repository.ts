@@ -162,6 +162,16 @@ export class DatabaseRepository {
   }
 
   // ==================== LEADS ====================
+  async getAllLeads() {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock leads data');
+      return [];
+    }
+    return await db.select().from(schema.leads)
+      .orderBy(desc(schema.leads.createdAt));
+  }
+
   async getLeadById(id: string) {
     // Handle demo mode
     if (!db) {
@@ -203,6 +213,16 @@ export class DatabaseRepository {
     return result[0] || null;
   }
 
+  async getPartnerByEmail(email: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock partner data for email:', email);
+      return null;
+    }
+    const result = await db.select().from(schema.partners).where(eq(schema.partners.email, email));
+    return result[0] || null;
+  }
+
   async createPartner(partnerData: any) {
     // Handle demo mode
     if (!db) {
@@ -224,6 +244,52 @@ export class DatabaseRepository {
       .where(eq(schema.partners.id, id))
       .returning();
     return result[0];
+  }
+
+  async authenticatePartner(username: string, password: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not authenticating partner');
+      // For demo purposes, return a mock partner if username is 'testpartner' and password is 'testpassword123'
+      if (username === 'testpartner' && password === 'testpassword123') {
+        return {
+          id: 'demo-partner-id',
+          username: 'testpartner',
+          email: 'testpartner@example.com',
+          firstName: 'Test',
+          lastName: 'Partner',
+          company: 'Test Company',
+          isActive: true,
+          approvalStatus: 'approved'
+        };
+      }
+      // Also support the default admin user for demo
+      if (username === 'partner' && password === 'partner123') {
+        return {
+          id: 'demo-partner-id-2',
+          username: 'partner',
+          email: 'partner@example.com',
+          firstName: 'Demo',
+          lastName: 'Partner',
+          company: 'Demo Company',
+          isActive: true,
+          approvalStatus: 'approved'
+        };
+      }
+      return null;
+    }
+
+    const partner = await this.getPartnerByUsername(username);
+    if (!partner) {
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, partner.password);
+    if (!isValid) {
+      return null;
+    }
+
+    return partner;
   }
 
   // ==================== COMMON INVESTORS ====================
@@ -251,9 +317,55 @@ export class DatabaseRepository {
     // Handle demo mode
     if (!db) {
       console.log('Demo mode: returning mock common investor data for username:', username);
-      return null;
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('common_investors')
+          .select('*')
+          .eq('username', username)
+          .single();
+        
+        if (error) {
+          console.log('Supabase query failed:', error.message);
+          return null;
+        }
+        
+        console.log('Successfully fetched common investor from Supabase:', username);
+        return data;
+      } catch (error) {
+        console.log('Supabase fallback failed:', error instanceof Error ? error.message : String(error));
+        return null;
+      }
     }
     const result = await db.select().from(schema.commonInvestors).where(eq(schema.commonInvestors.username, username));
+    return result[0] || null;
+  }
+
+  async getCommonInvestorByEmail(email: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock common investor data for email:', email);
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('common_investors')
+          .select('*')
+          .eq('email', email)
+          .single();
+        
+        if (error) {
+          console.log('Supabase query failed:', error.message);
+          return null;
+        }
+        
+        console.log('Successfully fetched common investor from Supabase by email:', email);
+        return data;
+      } catch (error) {
+        console.log('Supabase fallback failed:', error instanceof Error ? error.message : String(error));
+        return null;
+      }
+    }
+    const result = await db.select().from(schema.commonInvestors).where(eq(schema.commonInvestors.email, email));
     return result[0] || null;
   }
 
@@ -261,7 +373,25 @@ export class DatabaseRepository {
     // Handle demo mode
     if (!db) {
       console.log('Demo mode: not creating common investor');
-      return { id: 'demo-common-investor-id', ...investorData };
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('common_investors')
+          .insert(investorData)
+          .select()
+          .single();
+        
+        if (error) {
+          console.log('Supabase insert failed:', error.message);
+          return { id: 'demo-common-investor-id', ...investorData };
+        }
+        
+        console.log('Successfully created common investor in Supabase:', data.id);
+        return data;
+      } catch (error) {
+        console.log('Supabase fallback failed:', error instanceof Error ? error.message : String(error));
+        return { id: 'demo-common-investor-id', ...investorData };
+      }
     }
     const result = await db.insert(schema.commonInvestors).values(investorData).returning();
     return result[0];
@@ -278,6 +408,63 @@ export class DatabaseRepository {
       .where(eq(schema.commonInvestors.id, id))
       .returning();
     return result[0];
+  }
+
+  async authenticateCommonInvestor(username: string, password: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not authenticating common investor');
+      // For demo purposes, return a mock user if username is 'demo'
+      if (username === 'demo' && password === 'demo123') {
+        return {
+          id: 'demo-user-id',
+          username: 'demo',
+          email: 'demo@example.com',
+          firstName: 'Demo',
+          lastName: 'User',
+          userType: 'common_investor'
+        };
+      }
+      
+      // Try to authenticate using Supabase client as fallback
+      try {
+        // First get the investor by username
+        const { data: investor, error } = await supabase
+          .from('common_investors')
+          .select('*')
+          .eq('username', username)
+          .single();
+        
+        if (error || !investor) {
+          console.log('Supabase query failed or investor not found:', error?.message);
+          return null;
+        }
+        
+        // Verify password
+        const isValid = await bcrypt.compare(password, investor.password);
+        if (!isValid) {
+          return null;
+        }
+        
+        console.log('Successfully authenticated common investor via Supabase:', username);
+        return investor;
+      } catch (error) {
+        console.log('Supabase authentication fallback failed:', error instanceof Error ? error.message : String(error));
+        return null;
+      }
+    }
+
+    const investor = await this.getCommonInvestorByUsername(username);
+    if (!investor) {
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, investor.password);
+    if (!isValid) {
+      return null;
+    }
+
+    return investor;
   }
 
   async getCommonInvestorsWithForeclosureSubscription() {
@@ -322,10 +509,55 @@ export class DatabaseRepository {
     // Handle demo mode
     if (!db) {
       console.log('Demo mode: returning mock institutional investor data for username:', username);
-      return null;
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('institutional_investors')
+          .select('*')
+          .eq('username', username)
+          .single();
+        
+        if (error) {
+          console.log('Supabase query failed:', error.message);
+          return null;
+        }
+        
+        console.log('Successfully fetched institutional investor from Supabase:', username);
+        return data;
+      } catch (error) {
+        console.log('Supabase fallback failed:', error instanceof Error ? error.message : String(error));
+        return null;
+      }
     }
-    const result = await db.select().from(schema.institutionalInvestors)
-      .where(eq(schema.institutionalInvestors.username, username));
+    const result = await db.select().from(schema.institutionalInvestors).where(eq(schema.institutionalInvestors.username, username));
+    return result[0] || null;
+  }
+
+  async getInstitutionalInvestorByEmail(email: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: returning mock institutional investor data for email:', email);
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('institutional_investors')
+          .select('*')
+          .eq('email', email)
+          .single();
+        
+        if (error) {
+          console.log('Supabase query failed:', error.message);
+          return null;
+        }
+        
+        console.log('Successfully fetched institutional investor from Supabase by email:', email);
+        return data;
+      } catch (error) {
+        console.log('Supabase fallback failed:', error instanceof Error ? error.message : String(error));
+        return null;
+      }
+    }
+    const result = await db.select().from(schema.institutionalInvestors).where(eq(schema.institutionalInvestors.email, email));
     return result[0] || null;
   }
 
@@ -333,10 +565,104 @@ export class DatabaseRepository {
     // Handle demo mode
     if (!db) {
       console.log('Demo mode: not creating institutional investor');
-      return { id: 'demo-institutional-investor-id', ...investorData };
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('institutional_investors')
+          .insert(investorData)
+          .select()
+          .single();
+        
+        if (error) {
+          console.log('Supabase insert failed:', error.message);
+          return { id: 'demo-institutional-investor-id', ...investorData };
+        }
+        
+        console.log('Successfully created institutional investor in Supabase:', data.id);
+        return data;
+      } catch (error) {
+        console.log('Supabase fallback failed:', error instanceof Error ? error.message : String(error));
+        return { id: 'demo-institutional-investor-id', ...investorData };
+      }
     }
     const result = await db.insert(schema.institutionalInvestors).values(investorData).returning();
     return result[0];
+  }
+
+  async authenticateInstitutionalInvestor(username: string, password: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not authenticating institutional investor');
+      // For demo purposes, return a mock investor if username is 'institutional_demo' and password is 'demo123'
+      if (username === 'institutional_demo' && password === 'demo123') {
+        return {
+          id: 'demo-institutional-investor-id',
+          username: 'institutional_demo',
+          email: 'institutional@example.com',
+          personName: 'Demo Institutional',
+          institutionName: 'Demo Institution',
+          jobTitle: 'Investment Manager',
+          workPhone: '(555) 123-4567',
+          personalPhone: '(555) 987-6543',
+          isActive: true,
+          status: 'approved'
+        };
+      }
+      // Also support a generic institutional investor for testing
+      if (username === 'institutional' && password === 'institutional123') {
+        return {
+          id: 'demo-institutional-investor-id-2',
+          username: 'institutional',
+          email: 'institutional@test.com',
+          personName: 'Test Institutional',
+          institutionName: 'Test Institution',
+          jobTitle: 'Director',
+          workPhone: '(555) 555-5555',
+          personalPhone: '(555) 444-4444',
+          isActive: true,
+          status: 'approved'
+        };
+      }
+      
+      // Try to authenticate using Supabase client as fallback
+      try {
+        // First get the investor by username
+        const { data: investor, error } = await supabase
+          .from('institutional_investors')
+          .select('*')
+          .eq('username', username)
+          .single();
+        
+        if (error || !investor) {
+          console.log('Supabase query failed or investor not found:', error?.message);
+          return null;
+        }
+        
+        // Verify password
+        const isValid = await bcrypt.compare(password, investor.password);
+        if (!isValid) {
+          return null;
+        }
+        
+        console.log('Successfully authenticated institutional investor via Supabase:', username);
+        return investor;
+      } catch (error) {
+        console.log('Supabase authentication fallback failed:', error instanceof Error ? error.message : String(error));
+        return null;
+      }
+    }
+
+    const investor = await this.getInstitutionalInvestorByUsername(username);
+    if (!investor || !investor.password) {
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, investor.password);
+    if (!isValid) {
+      return null;
+    }
+
+    return investor;
   }
 
   async updateInstitutionalInvestor(id: string, investorData: any) {
@@ -351,7 +677,6 @@ export class DatabaseRepository {
       .returning();
     return result[0];
   }
-
   // ==================== FORECLOSURE LISTINGS ====================
   async getAllForeclosureListings() {
     // Handle demo mode
@@ -1047,112 +1372,7 @@ export class DatabaseRepository {
 
   // ==================== AUTHENTICATION ====================
   
-  // Common Investor Authentication
-  async getCommonInvestorByEmail(email: string) {
-    // Handle demo mode
-    if (!db) {
-      console.log('Demo mode: returning mock common investor data for email:', email);
-      return null;
-    }
-    const result = await db.select().from(schema.commonInvestors)
-      .where(eq(schema.commonInvestors.email, email));
-    return result[0] || null;
-  }
 
-  async authenticateCommonInvestor(username: string, password: string) {
-    // Handle demo mode
-    if (!db) {
-      console.log('Demo mode: not authenticating common investor');
-      // For demo purposes, return a mock user if username is 'demo'
-      if (username === 'demo') {
-        return {
-          id: 'demo-user-id',
-          username: 'demo',
-          email: 'demo@example.com',
-          firstName: 'Demo',
-          lastName: 'User',
-          userType: 'common_investor'
-        };
-      }
-      return null;
-    }
-
-    const investor = await this.getCommonInvestorByUsername(username);
-    if (!investor) {
-      return null;
-    }
-
-    const isValid = await bcrypt.compare(password, investor.password);
-    if (!isValid) {
-      return null;
-    }
-
-    return investor;
-  }
-
-  // Institutional Investor Authentication
-  async getInstitutionalInvestorByEmail(email: string) {
-    // Handle demo mode
-    if (!db) {
-      console.log('Demo mode: returning mock institutional investor data for email:', email);
-      return null;
-    }
-    const result = await db.select().from(schema.institutionalInvestors)
-      .where(eq(schema.institutionalInvestors.email, email));
-    return result[0] || null;
-  }
-
-  async authenticateInstitutionalInvestor(username: string, password: string) {
-    // Handle demo mode
-    if (!db) {
-      console.log('Demo mode: not authenticating institutional investor');
-      return null;
-    }
-
-    const investor = await this.getInstitutionalInvestorByUsername(username);
-    if (!investor || !investor.password) {
-      return null;
-    }
-
-    const isValid = await bcrypt.compare(password, investor.password);
-    if (!isValid) {
-      return null;
-    }
-
-    return investor;
-  }
-
-  // Partner Authentication
-  async getPartnerByEmail(email: string) {
-    // Handle demo mode
-    if (!db) {
-      console.log('Demo mode: returning mock partner data for email:', email);
-      return null;
-    }
-    const result = await db.select().from(schema.partners)
-      .where(eq(schema.partners.email, email));
-    return result[0] || null;
-  }
-
-  async authenticatePartner(username: string, password: string) {
-    // Handle demo mode
-    if (!db) {
-      console.log('Demo mode: not authenticating partner');
-      return null;
-    }
-
-    const partner = await this.getPartnerByUsername(username);
-    if (!partner) {
-      return null;
-    }
-
-    const isValid = await bcrypt.compare(password, partner.password);
-    if (!isValid) {
-      return null;
-    }
-
-    return partner;
-  }
 
   // ==================== SESSION MANAGEMENT ====================
   

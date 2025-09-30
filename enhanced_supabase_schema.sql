@@ -3,27 +3,85 @@
 -- and other features needed for the application
 
 -- Existing tables (with some enhancements)
-CREATE TABLE public.bid_service_requests (
+
+-- First, create the leads table since it's referenced by multiple other tables
+CREATE TABLE public.leads (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  lead_id uuid NOT NULL,
-  foreclosure_listing_id uuid,
+  type text NOT NULL,
   name text NOT NULL,
   email text NOT NULL,
   phone text NOT NULL,
-  investment_budget text,
-  max_bid_amount text,
-  investment_experience text,
-  preferred_contact_method text,
-  timeframe text,
-  additional_requirements text,
-  status text DEFAULT 'pending'::text,
-  assigned_to text,
+  source text NOT NULL,
+  status text NOT NULL DEFAULT 'new'::text,
+  motivation text,
+  timeline text,
+  budget text,
+  preferred_areas TEXT[],
+  experience_level text,
+  property_details jsonb,
   notes text,
+  email_verified boolean NOT NULL DEFAULT false,
+  email_verification_token text,
+  email_verification_sent_at timestamp with time zone,
+  email_verified_at timestamp with time zone,
+  phone_verified boolean NOT NULL DEFAULT false,
+  phone_verification_code text,
+  phone_verification_sent_at timestamp with time zone,
+  phone_verified_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT bid_service_requests_pkey PRIMARY KEY (id),
-  CONSTRAINT bid_service_requests_lead_id_fkey FOREIGN KEY (lead_id) REFERENCES public.leads(id),
-  CONSTRAINT bid_service_requests_foreclosure_listing_id_fkey FOREIGN KEY (foreclosure_listing_id) REFERENCES public.foreclosure_listings(id)
+  CONSTRAINT leads_pkey PRIMARY KEY (id)
+);
+
+-- Create investor tables early since they are referenced by multiple other tables
+CREATE TABLE public.common_investors (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  username text NOT NULL UNIQUE,
+  password text NOT NULL,
+  email text NOT NULL UNIQUE,
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  phone text,
+  is_active boolean NOT NULL DEFAULT true,
+  email_verified boolean NOT NULL DEFAULT false,
+  email_verification_token text,
+  email_verification_sent_at timestamp with time zone,
+  email_verified_at timestamp with time zone,
+  phone_verified boolean NOT NULL DEFAULT false,
+  phone_verification_code text,
+  phone_verification_sent_at timestamp with time zone,
+  phone_verified_at timestamp with time zone,
+  has_foreclosure_subscription boolean NOT NULL DEFAULT false,
+  foreclosure_subscription_expiry timestamp with time zone,
+  subscription_plan text,
+  password_reset_token text,
+  password_reset_expires timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT common_investors_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.institutional_investors (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  person_name text NOT NULL,
+  institution_name text NOT NULL,
+  job_title text NOT NULL,
+  email text NOT NULL UNIQUE,
+  work_phone text NOT NULL,
+  personal_phone text NOT NULL,
+  business_card_url text,
+  status text NOT NULL DEFAULT 'pending'::text,
+  username text UNIQUE,
+  password text,
+  is_active boolean DEFAULT false,
+  approved_at timestamp with time zone,
+  approved_by text,
+  last_login_at timestamp with time zone,
+  password_reset_token text,
+  password_reset_expires timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT institutional_investors_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.blogs (
@@ -78,33 +136,6 @@ CREATE TABLE public.common_investor_sessions (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT common_investor_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT common_investor_sessions_investor_id_fkey FOREIGN KEY (investor_id) REFERENCES public.common_investors(id)
-);
-
-CREATE TABLE public.common_investors (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  username text NOT NULL UNIQUE,
-  password text NOT NULL,
-  email text NOT NULL UNIQUE,
-  first_name text NOT NULL,
-  last_name text NOT NULL,
-  phone text,
-  is_active boolean NOT NULL DEFAULT true,
-  email_verified boolean NOT NULL DEFAULT false,
-  email_verification_token text,
-  email_verification_sent_at timestamp with time zone,
-  email_verified_at timestamp with time zone,
-  phone_verified boolean NOT NULL DEFAULT false,
-  phone_verification_code text,
-  phone_verification_sent_at timestamp with time zone,
-  phone_verified_at timestamp with time zone,
-  has_foreclosure_subscription boolean NOT NULL DEFAULT false,
-  foreclosure_subscription_expiry timestamp with time zone,
-  subscription_plan text,
-  password_reset_token text,
-  password_reset_expires timestamp with time zone,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT common_investors_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.communications (
@@ -217,29 +248,6 @@ CREATE TABLE public.institutional_foreclosure_lists (
   CONSTRAINT institutional_foreclosure_lists_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE public.institutional_investors (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  person_name text NOT NULL,
-  institution_name text NOT NULL,
-  job_title text NOT NULL,
-  email text NOT NULL UNIQUE,
-  work_phone text NOT NULL,
-  personal_phone text NOT NULL,
-  business_card_url text,
-  status text NOT NULL DEFAULT 'pending'::text,
-  username text UNIQUE,
-  password text,
-  is_active boolean DEFAULT false,
-  approved_at timestamp with time zone,
-  approved_by text,
-  last_login_at timestamp with time zone,
-  password_reset_token text,
-  password_reset_expires timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT institutional_investors_pkey PRIMARY KEY (id)
-);
-
 CREATE TABLE public.institutional_sessions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   investor_id uuid NOT NULL,
@@ -261,58 +269,27 @@ CREATE TABLE public.institutional_weekly_deliveries (
   CONSTRAINT institutional_weekly_deliveries_foreclosure_list_id_fkey FOREIGN KEY (foreclosure_list_id) REFERENCES public.institutional_foreclosure_lists(id)
 );
 
-CREATE TABLE public.leads (
+CREATE TABLE public.bid_service_requests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  type text NOT NULL,
+  lead_id uuid NOT NULL,
+  foreclosure_listing_id uuid,
   name text NOT NULL,
   email text NOT NULL,
   phone text NOT NULL,
-  source text NOT NULL,
-  status text NOT NULL DEFAULT 'new'::text,
-  motivation text,
-  timeline text,
-  budget text,
-  preferred_areas TEXT[],
-  experience_level text,
-  property_details jsonb,
+  investment_budget text,
+  max_bid_amount text,
+  investment_experience text,
+  preferred_contact_method text,
+  timeframe text,
+  additional_requirements text,
+  status text DEFAULT 'pending'::text,
+  assigned_to text,
   notes text,
-  email_verified boolean NOT NULL DEFAULT false,
-  email_verification_token text,
-  email_verification_sent_at timestamp with time zone,
-  email_verified_at timestamp with time zone,
-  phone_verified boolean NOT NULL DEFAULT false,
-  phone_verification_code text,
-  phone_verification_sent_at timestamp with time zone,
-  phone_verified_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT leads_pkey PRIMARY KEY (id)
-);
-
-CREATE TABLE public.offers (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  property_id uuid NOT NULL,
-  common_investor_id uuid,
-  institutional_investor_id uuid,
-  buyer_lead_id uuid,
-  offer_amount numeric NOT NULL,
-  terms text,
-  status text NOT NULL DEFAULT 'pending'::text,
-  offer_letter_url text,
-  proof_of_funds_url text,
-  closing_date text,
-  down_payment numeric,
-  financing_type text,
-  contingencies text,
-  additional_terms text,
-  signed_at timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT offers_pkey PRIMARY KEY (id),
-  CONSTRAINT offers_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id),
-  CONSTRAINT offers_common_investor_id_fkey FOREIGN KEY (common_investor_id) REFERENCES public.common_investors(id),
-  CONSTRAINT offers_institutional_investor_id_fkey FOREIGN KEY (institutional_investor_id) REFERENCES public.institutional_investors(id),
-  CONSTRAINT offers_buyer_lead_id_fkey FOREIGN KEY (buyer_lead_id) REFERENCES public.leads(id)
+  CONSTRAINT bid_service_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT bid_service_requests_lead_id_fkey FOREIGN KEY (lead_id) REFERENCES public.leads(id),
+  CONSTRAINT bid_service_requests_foreclosure_listing_id_fkey FOREIGN KEY (foreclosure_listing_id) REFERENCES public.foreclosure_listings(id)
 );
 
 CREATE TABLE public.partners (
@@ -344,6 +321,7 @@ CREATE TABLE public.partners (
   CONSTRAINT partners_pkey PRIMARY KEY (id)
 );
 
+-- Create properties table early since it is referenced by multiple other tables
 CREATE TABLE public.properties (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   address text NOT NULL,
@@ -549,6 +527,33 @@ CREATE TABLE public.property_images (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT property_images_pkey PRIMARY KEY (id),
   CONSTRAINT property_images_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id) ON DELETE CASCADE
+);
+
+-- Create offers table after properties since it references properties
+CREATE TABLE public.offers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  property_id uuid NOT NULL,
+  common_investor_id uuid,
+  institutional_investor_id uuid,
+  buyer_lead_id uuid,
+  offer_amount numeric NOT NULL,
+  terms text,
+  status text NOT NULL DEFAULT 'pending'::text,
+  offer_letter_url text,
+  proof_of_funds_url text,
+  closing_date text,
+  down_payment numeric,
+  financing_type text,
+  contingencies text,
+  additional_terms text,
+  signed_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT offers_pkey PRIMARY KEY (id),
+  CONSTRAINT offers_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id),
+  CONSTRAINT offers_common_investor_id_fkey FOREIGN KEY (common_investor_id) REFERENCES public.common_investors(id),
+  CONSTRAINT offers_institutional_investor_id_fkey FOREIGN KEY (institutional_investor_id) REFERENCES public.institutional_investors(id),
+  CONSTRAINT offers_buyer_lead_id_fkey FOREIGN KEY (buyer_lead_id) REFERENCES public.leads(id)
 );
 
 -- User activity log table

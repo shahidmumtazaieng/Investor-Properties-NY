@@ -182,6 +182,13 @@ const startServer = async () => {
   const server = createServer(app);
   const port = parseInt(process.env.PORT || "3002", 10);
   
+  // Check if SendGrid API key is properly configured
+  const sendGridKey = process.env.SENDGRID_API_KEY;
+  if (sendGridKey && !sendGridKey.startsWith('SG.')) {
+    console.warn('Warning: SendGrid API key is not properly configured. Email notifications will be disabled.');
+    console.warn('To enable email notifications, please set a valid SendGrid API key starting with "SG."');
+  }
+  
   server.listen(port, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);

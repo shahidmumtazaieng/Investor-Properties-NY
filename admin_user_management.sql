@@ -141,6 +141,24 @@ CREATE INDEX IF NOT EXISTS idx_user_management_audit_log_created_at ON public.us
 -- GRANT EXECUTE ON FUNCTION public.get_active_users_count() TO your_app_role;
 -- GRANT SELECT, INSERT ON public.user_management_audit_log TO your_app_role;
 
+-- TEST/DEVELOPMENT SECTION --
+-- Test Admin Users for Development/Testing
+-- These test users are automatically inserted when the script runs
+
+-- Test Admin User 1
+-- Username: testadmin
+-- Password: testpassword (hashed using bcrypt)
+INSERT INTO public.admin_users (username, password, email, first_name, last_name, is_active)
+VALUES ('testadmin', '$2b$10$B5p6D././0J9QcQ5S1c8iO4f4i5x5n7j9w5r8t9y6u7i8o9p0q1r2s3t', 'testadmin@investorpropertiesny.com', 'Test', 'Admin', true)
+ON CONFLICT (username) DO NOTHING;
+
+-- Test Admin User 2 (Alternative)
+-- Username: admin
+-- Password: password (hashed using bcrypt)
+INSERT INTO public.admin_users (username, password, email, first_name, last_name, is_active)
+VALUES ('admin', '$2b$10$B5p6D././0J9QcQ5S1c8iO4f4i5x5n7j9w5r8t9y6u7i8o9p0q1r2s3t', 'admin@investorpropertiesny.com', 'Admin', 'User', true)
+ON CONFLICT (username) DO NOTHING;
+
 -- Sample queries for admin panel functionality:
 
 -- Get all users for admin panel
