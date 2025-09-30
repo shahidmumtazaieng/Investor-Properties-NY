@@ -891,6 +891,38 @@ export class DatabaseRepository {
     return result[0];
   }
 
+  // Toggle foreclosure listing status (active/inactive)
+  async toggleForeclosureListingStatus(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not toggling foreclosure listing status');
+      // For demo, return a mock result
+      return {
+        id,
+        isActive: false, // Toggle the status
+        updatedAt: new Date()
+      };
+    }
+    
+    // First, get the current listing to check if it exists
+    const existingListing = await db.select()
+      .from(schema.foreclosureListings)
+      .where(eq(schema.foreclosureListings.id, id));
+      
+    if (existingListing.length === 0) {
+      throw new Error('Foreclosure listing not found');
+    }
+    
+    // Toggle the isActive status
+    const currentStatus = existingListing[0].isActive;
+    const result = await db.update(schema.foreclosureListings)
+      .set({ isActive: !currentStatus, updatedAt: new Date() })
+      .where(eq(schema.foreclosureListings.id, id))
+      .returning();
+      
+    return result[0];
+  }
+
   // ==================== BID SERVICE REQUESTS ====================
   
   async createBidServiceRequest(requestData: any) {
@@ -1131,6 +1163,44 @@ export class DatabaseRepository {
       return result[0];
     } catch (error) {
       console.error('Error updating foreclosure bid:', error);
+      throw error;
+    }
+  }
+
+  // ==================== DELETE METHODS FOR BID SERVICE REQUESTS AND INSTITUTIONAL BID TRACKING ====================
+  
+  async deleteBidServiceRequest(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not deleting bid service request');
+      return { id };
+    }
+    
+    try {
+      const result = await db.delete(schema.bidServiceRequests)
+        .where(eq(schema.bidServiceRequests.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error deleting bid service request:', error);
+      throw error;
+    }
+  }
+  
+  async deleteInstitutionalBidTracking(id: string) {
+    // Handle demo mode
+    if (!db) {
+      console.log('Demo mode: not deleting institutional bid tracking');
+      return { id };
+    }
+    
+    try {
+      const result = await db.delete(schema.institutionalBidTracking)
+        .where(eq(schema.institutionalBidTracking.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error deleting institutional bid tracking:', error);
       throw error;
     }
   }

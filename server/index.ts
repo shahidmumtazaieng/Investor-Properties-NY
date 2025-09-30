@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-const app = express();
+export const app = express();
 const db = new DatabaseRepository();
 
 // Middleware

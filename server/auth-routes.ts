@@ -1,5 +1,6 @@
 import express from 'express';
 import { DatabaseRepository } from './database-repository.ts';
+import { NotificationService } from './notification-service.ts';
 
 const router = express.Router();
 const db = new DatabaseRepository();
@@ -909,64 +910,120 @@ router.post('/investor/foreclosure-bids', authenticateUser, async (req: Authenti
       });
     }
 
-    const { 
-      foreclosureId, 
-      bidAmount, 
-      maxBidAmount, 
-      investmentExperience, 
-      preferredContactMethod, 
-      timeframe, 
-      additionalRequirements 
-    } = req.body;
+    const bidData = req.body;
     
-    // Validation
-    if (!foreclosureId || !bidAmount || !maxBidAmount || !investmentExperience || !preferredContactMethod || !timeframe) {
-      return res.status(400).json({ 
+    // Check if investor has active foreclosure subscription
+    const investor = await db.getCommonInvestorById(req.user.id);
+    if (!investor || !investor.hasForeclosureSubscription || !investor.foreclosureSubscriptionExpiry || new Date(investor.foreclosureSubscriptionExpiry) < new Date()) {
+      return res.status(403).json({ 
         success: false, 
-        message: 'All required fields must be provided' 
+        message: 'You need an active foreclosure subscription to submit bids' 
       });
     }
 
-    // Get foreclosure listing details
-    const foreclosure = await db.getForeclosureListingById(foreclosureId);
-    if (!foreclosure) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Foreclosure listing not found' 
-      });
-    }
-
-    // For common investors, we'll store the bid in the bid_service_requests table
-    const bidRequestData = {
-      leadId: req.user.id, // Using user ID as lead ID for now
-      foreclosureListingId: foreclosureId,
-      name: `${req.user.firstName} ${req.user.lastName}`,
-      email: req.user.email,
-      phone: req.user.phone || '',
-      investmentBudget: '', // Not applicable for foreclosure bids
-      maxBidAmount: maxBidAmount.toString(),
-      investmentExperience: investmentExperience,
-      preferredContactMethod: preferredContactMethod,
-      timeframe: timeframe,
-      additionalRequirements: additionalRequirements || '',
+    // Create bid service request
+    const bidRequest = {
+      leadId: req.user.id, // Using userId as leadId for now
+      foreclosureListingId: bidData.foreclosureId,
+      name: `${investor.firstName} ${investor.lastName}`,
+      email: investor.email,
+      phone: investor.phone || '',
+      investmentBudget: '', // Will be filled from bidData
+      maxBidAmount: bidData.maxBidAmount.toString(),
+      investmentExperience: bidData.investmentExperience,
+      preferredContactMethod: bidData.preferredContactMethod,
+      timeframe: bidData.timeframe,
+      additionalRequirements: bidData.additionalRequirements,
       status: 'pending'
     };
 
-    // Create bid request record
-    const result = await db.createBidServiceRequest(bidRequestData);
+    const createdBid = await db.createBidServiceRequest(bidRequest);
 
-    res.status(201).json({
-      success: true,
-      message: 'Foreclosure bid request submitted successfully',
-      requestId: result.id
+    // Send notification to admin
+    // await NotificationService.sendNewBidNotification(createdBid);
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Foreclosure bid submitted successfully',
+      bid: createdBid
     });
-
   } catch (error) {
-    console.error('Error submitting foreclosure bid request:', error);
+    console.error('Error submitting foreclosure bid:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Failed to submit foreclosure bid request' 
+      message: 'Failed to submit foreclosure bid' 
     });
+  }
+});
+
+// Submit foreclosure bid (institutional investors)
+router.post('/institutional/foreclosure-bids', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    // Verify user is an institutional investor
+    if (req.userType !== 'institutional_investor') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only institutional investors can submit foreclosure bids' 
+      });
+    }
+
+    const bidData = req.body;
+    
+    // Create institutional bid tracking record
+    const bidTracking = {
+      investorId: req.user.id,
+      propertyId: bidData.foreclosureId, // This might be null for foreclosure properties
+      propertyAddress: '', // Will be filled from foreclosure listing
+      bidAmount: bidData.bidAmount.toString(),
+      auctionDate: new Date(), // Will be filled from foreclosure listing
+      status: 'submitted',
+      notes: `Investment experience: ${bidData.investmentExperience}\nTimeframe: ${bidData.timeframe}\nAdditional requirements: ${bidData.additionalRequirements}`
+    };
+
+    const createdBid = await db.createInstitutionalBidTracking(bidTracking);
+
+    // Send notification to admin
+    // await NotificationService.sendNewInstitutionalBidNotification(createdBid);
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Foreclosure bid submitted successfully',
+      bid: createdBid
+    });
+  } catch (error) {
+    console.error('Error submitting institutional foreclosure bid:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit foreclosure bid' 
+    });
+  }
+});
+
+// Get foreclosure listing details (for investors)
+router.get('/foreclosures/:id', async (req: express.Request, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const listing = await db.getForeclosureListingById(id);
+    
+    if (!listing || !listing.isActive) {
+      return res.status(404).json({ message: 'Foreclosure listing not found' });
+    }
+    
+    res.json({ listing });
+  } catch (error) {
+    console.error('Error fetching foreclosure listing:', error);
+    res.status(500).json({ message: 'Failed to fetch foreclosure listing' });
+  }
+});
+
+// Get all active foreclosure listings (for investors)
+router.get('/foreclosures', async (req: express.Request, res: express.Response) => {
+  try {
+    const listings = await db.getAllForeclosureListings();
+    res.json(listings);
+  } catch (error) {
+    console.error('Error fetching foreclosure listings:', error);
+    res.status(500).json({ message: 'Failed to fetch foreclosure listings' });
   }
 });
 
