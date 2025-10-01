@@ -184,11 +184,34 @@ export const databaseHealthCheck = async () => {
     
     return { status: 'healthy', message: 'Database connection is active' };
   } catch (error) {
-    return { 
-      status: 'unhealthy', 
-      message: 'Database connection failed',
-      error: error instanceof Error ? error.message : String(error)
-    };
+    console.log('Direct database connection failed, checking Supabase client as fallback:', error instanceof Error ? error.message : String(error));
+    // Try to use Supabase client as fallback
+    try {
+      // Test Supabase client connection
+      const { data, error: supabaseError } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1);
+      
+      if (supabaseError) {
+        console.log('Supabase client test failed:', supabaseError.message);
+        return { 
+          status: 'unhealthy', 
+          message: 'Database connection failed',
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+      
+      console.log('Supabase client connection successful, using as fallback');
+      return { status: 'healthy', message: 'Database connection active via Supabase client' };
+    } catch (supabaseError) {
+      console.log('Supabase client fallback failed:', supabaseError instanceof Error ? supabaseError.message : String(supabaseError));
+      return { 
+        status: 'unhealthy', 
+        message: 'Database connection failed',
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
   }
 };
 

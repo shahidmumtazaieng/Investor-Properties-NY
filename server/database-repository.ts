@@ -25,8 +25,26 @@ export class DatabaseRepository {
       const health = await databaseHealthCheck();
       return health.status !== 'healthy';
     } catch (error) {
-      console.log('Health check failed, using demo mode:', error instanceof Error ? error.message : String(error));
-      return true;
+      console.log('Health check failed, checking Supabase client as fallback:', error instanceof Error ? error.message : String(error));
+      // Try to use Supabase client as fallback
+      try {
+        // Test Supabase client connection
+        const { data, error } = await supabase
+          .from('users')
+          .select('id')
+          .limit(1);
+        
+        if (error) {
+          console.log('Supabase client test failed:', error.message);
+          return true; // Use demo mode if Supabase client also fails
+        }
+        
+        console.log('Supabase client connection successful, using real database operations');
+        return false; // Use real database operations with Supabase client
+      } catch (supabaseError) {
+        console.log('Supabase client fallback failed:', supabaseError instanceof Error ? supabaseError.message : String(supabaseError));
+        return true; // Use demo mode if all connections fail
+      }
     }
   }
 
@@ -190,46 +208,102 @@ export class DatabaseRepository {
     
     // Additional null check for db
     if (!db) {
-      console.log('Database is null, returning mock properties data');
-      // Return mock data on error
-      return [
-        {
-          id: "1",
-          address: "123 Brooklyn Ave",
-          neighborhood: "Park Slope",
-          borough: "Brooklyn",
-          propertyType: "Condo",
-          beds: 2,
-          baths: "2",
-          sqft: 1200,
-          price: "750000",
-          arv: "850000",
-          estimatedProfit: "75000",
-          images: ["/placeholder-property.jpg"],
-          description: "Beautiful condo in prime Brooklyn location with modern amenities.",
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        } as any,
-        {
-          id: "2",
-          address: "456 Queens Blvd",
-          neighborhood: "Long Island City",
-          borough: "Queens",
-          propertyType: "Single Family",
-          beds: 3,
-          baths: "2.5",
-          sqft: 1800,
-          price: "650000",
-          arv: "750000",
-          estimatedProfit: "85000",
-          images: ["/placeholder-property.jpg"],
-          description: "Spacious single family home with great potential for renovation.",
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        } as any
-      ];
+      console.log('Database is null, attempting to fetch properties using Supabase client');
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.log('Supabase query failed, falling back to mock data:', error.message);
+          // Return mock data on error
+          return [
+            {
+              id: "1",
+              address: "123 Brooklyn Ave",
+              neighborhood: "Park Slope",
+              borough: "Brooklyn",
+              propertyType: "Condo",
+              beds: 2,
+              baths: "2",
+              sqft: 1200,
+              price: "750000",
+              arv: "850000",
+              estimatedProfit: "75000",
+              images: ["/placeholder-property.jpg"],
+              description: "Beautiful condo in prime Brooklyn location with modern amenities.",
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            } as any,
+            {
+              id: "2",
+              address: "456 Queens Blvd",
+              neighborhood: "Long Island City",
+              borough: "Queens",
+              propertyType: "Single Family",
+              beds: 3,
+              baths: "2.5",
+              sqft: 1800,
+              price: "650000",
+              arv: "750000",
+              estimatedProfit: "85000",
+              images: ["/placeholder-property.jpg"],
+              description: "Spacious single family home with great potential for renovation.",
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            } as any
+          ];
+        }
+        
+        console.log('Successfully fetched properties from Supabase:', data?.length || 0);
+        return data || [];
+      } catch (supabaseError) {
+        console.log('Supabase client failed, falling back to mock data:', supabaseError instanceof Error ? supabaseError.message : String(supabaseError));
+        // Return mock data on error
+        return [
+          {
+            id: "1",
+            address: "123 Brooklyn Ave",
+            neighborhood: "Park Slope",
+            borough: "Brooklyn",
+            propertyType: "Condo",
+            beds: 2,
+            baths: "2",
+            sqft: 1200,
+            price: "750000",
+            arv: "850000",
+            estimatedProfit: "75000",
+            images: ["/placeholder-property.jpg"],
+            description: "Beautiful condo in prime Brooklyn location with modern amenities.",
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } as any,
+          {
+            id: "2",
+            address: "456 Queens Blvd",
+            neighborhood: "Long Island City",
+            borough: "Queens",
+            propertyType: "Single Family",
+            beds: 3,
+            baths: "2.5",
+            sqft: 1800,
+            price: "650000",
+            arv: "750000",
+            estimatedProfit: "85000",
+            images: ["/placeholder-property.jpg"],
+            description: "Spacious single family home with great potential for renovation.",
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } as any
+        ];
+      }
     }
     
     try {
@@ -237,46 +311,102 @@ export class DatabaseRepository {
         .where(eq(schema.properties.isActive, true))
         .orderBy(desc(schema.properties.createdAt));
     } catch (error) {
-      console.error('Error fetching properties, falling back to demo mode:', error);
-      // Return mock data on error
-      return [
-        {
-          id: "1",
-          address: "123 Brooklyn Ave",
-          neighborhood: "Park Slope",
-          borough: "Brooklyn",
-          propertyType: "Condo",
-          beds: 2,
-          baths: "2",
-          sqft: 1200,
-          price: "750000",
-          arv: "850000",
-          estimatedProfit: "75000",
-          images: ["/placeholder-property.jpg"],
-          description: "Beautiful condo in prime Brooklyn location with modern amenities.",
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        } as any,
-        {
-          id: "2",
-          address: "456 Queens Blvd",
-          neighborhood: "Long Island City",
-          borough: "Queens",
-          propertyType: "Single Family",
-          beds: 3,
-          baths: "2.5",
-          sqft: 1800,
-          price: "650000",
-          arv: "750000",
-          estimatedProfit: "85000",
-          images: ["/placeholder-property.jpg"],
-          description: "Spacious single family home with great potential for renovation.",
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        } as any
-      ];
+      console.error('Error fetching properties, falling back to Supabase client:', error);
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error: supabaseError } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        
+        if (supabaseError) {
+          console.log('Supabase query failed, falling back to mock data:', supabaseError.message);
+          // Return mock data on error
+          return [
+            {
+              id: "1",
+              address: "123 Brooklyn Ave",
+              neighborhood: "Park Slope",
+              borough: "Brooklyn",
+              propertyType: "Condo",
+              beds: 2,
+              baths: "2",
+              sqft: 1200,
+              price: "750000",
+              arv: "850000",
+              estimatedProfit: "75000",
+              images: ["/placeholder-property.jpg"],
+              description: "Beautiful condo in prime Brooklyn location with modern amenities.",
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            } as any,
+            {
+              id: "2",
+              address: "456 Queens Blvd",
+              neighborhood: "Long Island City",
+              borough: "Queens",
+              propertyType: "Single Family",
+              beds: 3,
+              baths: "2.5",
+              sqft: 1800,
+              price: "650000",
+              arv: "750000",
+              estimatedProfit: "85000",
+              images: ["/placeholder-property.jpg"],
+              description: "Spacious single family home with great potential for renovation.",
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            } as any
+          ];
+        }
+        
+        console.log('Successfully fetched properties from Supabase (fallback):', data?.length || 0);
+        return data || [];
+      } catch (supabaseError) {
+        console.log('Supabase client fallback failed, returning mock data:', supabaseError instanceof Error ? supabaseError.message : String(supabaseError));
+        // Return mock data on error
+        return [
+          {
+            id: "1",
+            address: "123 Brooklyn Ave",
+            neighborhood: "Park Slope",
+            borough: "Brooklyn",
+            propertyType: "Condo",
+            beds: 2,
+            baths: "2",
+            sqft: 1200,
+            price: "750000",
+            arv: "850000",
+            estimatedProfit: "75000",
+            images: ["/placeholder-property.jpg"],
+            description: "Beautiful condo in prime Brooklyn location with modern amenities.",
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } as any,
+          {
+            id: "2",
+            address: "456 Queens Blvd",
+            neighborhood: "Long Island City",
+            borough: "Queens",
+            propertyType: "Single Family",
+            beds: 3,
+            baths: "2.5",
+            sqft: 1800,
+            price: "650000",
+            arv: "750000",
+            estimatedProfit: "85000",
+            images: ["/placeholder-property.jpg"],
+            description: "Spacious single family home with great potential for renovation.",
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          } as any
+        ];
+      }
     }
   }
 
@@ -289,16 +419,52 @@ export class DatabaseRepository {
     
     // Additional null check for db
     if (!db) {
-      console.log('Database is null, returning mock property data for id:', id);
-      return null;
+      console.log('Database is null, attempting to fetch property using Supabase client');
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) {
+          console.log('Supabase query failed:', error.message);
+          return null;
+        }
+        
+        console.log('Successfully fetched property from Supabase:', data?.id);
+        return data || null;
+      } catch (supabaseError) {
+        console.log('Supabase client failed:', supabaseError instanceof Error ? supabaseError.message : String(supabaseError));
+        return null;
+      }
     }
     
     try {
       const result = await db.select().from(schema.properties).where(eq(schema.properties.id, id));
       return result[0] || null;
     } catch (error) {
-      console.error('Error fetching property by ID, falling back to demo mode:', error);
-      return null;
+      console.error('Error fetching property by ID, falling back to Supabase client:', error);
+      // Try to use Supabase client as fallback
+      try {
+        const { data, error: supabaseError } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (supabaseError) {
+          console.log('Supabase query failed:', supabaseError.message);
+          return null;
+        }
+        
+        console.log('Successfully fetched property from Supabase (fallback):', data?.id);
+        return data || null;
+      } catch (supabaseError) {
+        console.log('Supabase client fallback failed:', supabaseError instanceof Error ? supabaseError.message : String(supabaseError));
+        return null;
+      }
     }
   }
 
