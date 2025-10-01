@@ -3,7 +3,7 @@
   "public": false,
   "builds": [
     {
-      "src": "server/index.ts",
+      "src": "server/vercel-server.ts",
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
@@ -12,19 +12,32 @@
           "client/dist/**"
         ]
       }
+    },
+    {
+      "src": "server/vercel-test.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/api/vercel-test",
+      "dest": "/server/vercel-test.js"
+    },
+    {
+      "src": "/api/test-vercel-db",
+      "dest": "/server/test-vercel-db.ts"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "/server/index.ts"
+      "dest": "/server/vercel-server.ts"
     },
     {
       "src": "/(.*)",
-      "dest": "/server/index.ts"
+      "dest": "/server/vercel-server.ts"
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "VERCEL": "1"
   }
 }

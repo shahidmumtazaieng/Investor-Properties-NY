@@ -192,30 +192,47 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   console.error('Error:', err);
   const status = err.status || err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
-  res.status(status).json({ message });
+  res.status(status).json({ 
+    message,
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
-// Start server
-const startServer = async () => {
-  const server = createServer(app);
-  const port = parseInt(process.env.PORT || "3002", 10);
-  
-  // Check if SendGrid API key is properly configured
-  const sendGridKey = process.env.SENDGRID_API_KEY;
-  if (sendGridKey && !sendGridKey.startsWith('SG.')) {
-    console.warn('Warning: SendGrid API key is not properly configured. Email notifications will be disabled.');
-    console.warn('To enable email notifications, please set a valid SendGrid API key starting with "SG."');
-  }
-  
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`🚀 Server running on port ${port}`);
-    console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 Frontend: http://localhost:3000`);
-      console.log(`🔧 API: http://localhost:${port}/api`);
-    }
+// Add a 404 handler
+app.use((req, res) => {
+  res.status(404).json({ 
+    message: 'Route not found',
+    path: req.path
   });
+});
+
+// Export for Vercel
+export default app;
+
+// Start server (only when not in Vercel environment)
+const startServer = async () => {
+  // Only start server if not in Vercel environment
+  if (!process.env.VERCEL) {
+    const server = createServer(app);
+    const port = parseInt(process.env.PORT || "3002", 10);
+    
+    // Check if SendGrid API key is properly configured
+    const sendGridKey = process.env.SENDGRID_API_KEY;
+    if (sendGridKey && !sendGridKey.startsWith('SG.')) {
+      console.warn('Warning: SendGrid API key is not properly configured. Email notifications will be disabled.');
+      console.warn('To enable email notifications, please set a valid SendGrid API key starting with "SG."');
+    }
+    
+    server.listen(port, "0.0.0.0", () => {
+      console.log(`🚀 Server running on port ${port}`);
+      console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🌐 Frontend: http://localhost:3000`);
+        console.log(`🔧 API: http://localhost:${port}/api`);
+      }
+    });
+  }
 };
 
 // Handle graceful shutdown
@@ -232,11 +249,16 @@ process.on('SIGINT', () => {
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
-  process.exit(1);
+  // Don't exit in Vercel environment
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
 });
 
-// Start the server
-startServer().catch(error => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
+// Start the server (only when not in Vercel environment)
+if (!process.env.VERCEL) {
+  startServer().catch(error => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  });
+}

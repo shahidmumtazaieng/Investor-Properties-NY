@@ -39,6 +39,7 @@ const connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABA
 
 console.log('Connection string:', connectionString ? 'Configured' : 'Not found');
 console.log('Is demo connection:', connectionString === demoConnectionString);
+console.log('Vercel environment:', process.env.VERCEL ? 'Yes' : 'No');
 
 // Enhanced connection function with better timeout handling and fallback mechanism
 const createDbConnection = () => {
@@ -68,12 +69,12 @@ const createDbConnection = () => {
     // For direct SQL queries with improved timeout and retry settings
     const queryClient = postgres(connectionString, { 
       max: 1, // Reduced connection pool size to 1
-      idle_timeout: 2, // Connection idle timeout in seconds
-      connect_timeout: 10, // Increased connection timeout to 10 seconds
+      idle_timeout: 20, // Increased connection idle timeout in seconds for Vercel
+      connect_timeout: 10, // Connection timeout in seconds
       max_lifetime: 60 * 5, // 5 minutes max connection lifetime
       backoff: (attempt) => Math.min(100 * Math.pow(2, attempt), 2000), // Exponential backoff with higher max
       onnotice: (notice) => {
-        // Only log important notices in production
+        // Only log important notices in development
         if (process.env.NODE_ENV === 'development') {
           console.log('Database notice:', notice);
         }
@@ -116,7 +117,7 @@ export const testDatabaseConnection = async () => {
     const result = await Promise.race([
       db.execute(sql`SELECT 1 as test`),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database connection test timeout')), 3000)
+        setTimeout(() => reject(new Error('Database connection test timeout')), 5000)
       )
     ]);
     
@@ -135,7 +136,7 @@ export const testSupabaseConnection = async () => {
     
     // Test with a simple query with timeout
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Supabase connection test timeout')), 3000)
+      setTimeout(() => reject(new Error('Supabase connection test timeout')), 5000)
     );
     
     const queryPromise = supabase
@@ -178,7 +179,7 @@ export const databaseHealthCheck = async () => {
     const result = await Promise.race([
       db.execute(sql`SELECT 1`),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database health check timeout')), 2000)
+        setTimeout(() => reject(new Error('Database health check timeout')), 5000)
       )
     ]);
     
