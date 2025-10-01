@@ -7,7 +7,8 @@ import {
   InsertCommonInvestorSession,
   InstitutionalInvestor
 } from "../shared/schema.js";
-import { db } from './database.js';
+import { db as rawDb } from './database.js';
+import { DatabaseRepository } from './database-repository.js';
 import * as schema from '../shared/schema.js';
 import { eq, desc } from 'drizzle-orm';
 
@@ -17,44 +18,103 @@ export class SaaSStorageExtension {
   private commonInvestorSessions: Map<string, CommonInvestorSession> = new Map();
   private commonInvestorsByUsername: Map<string, string> = new Map(); // username -> id
   private commonInvestorsByEmail: Map<string, string> = new Map(); // email -> id
+  private db: DatabaseRepository;
+  private rawDb: any;
 
   constructor() {
+    this.db = new DatabaseRepository();
+    this.rawDb = rawDb;
     this.seedSampleInvestors();
   }
   
   // Notification and Subscription Methods
+  async getAllCommonInvestors(): Promise<CommonInvestor[]> {
+    try {
+      const result = await this.db.getAllCommonInvestors();
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      console.error('Error fetching all common investors from database:', error);
+      // Fallback to mock data
+      return Array.from(this.commonInvestors.values());
+    }
+  }
+  
+  async getAllInstitutionalInvestors(): Promise<InstitutionalInvestor[]> {
+    try {
+      const result = await this.db.getAllInstitutionalInvestors();
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      console.error('Error fetching all institutional investors from database:', error);
+      // Fallback to mock data
+      return Array.from(this.institutionalInvestors.values());
+    }
+  }
+  
   async getCommonInvestorsWithForeclosureSubscription(): Promise<CommonInvestor[]> {
-    return this.getAllCommonInvestors().filter(investor => investor.hasForeclosureSubscription);
+    try {
+      const allInvestors = await this.getAllCommonInvestors();
+      return allInvestors.filter(investor => 
+        investor.hasForeclosureSubscription && 
+        investor.foreclosureSubscriptionExpiry && 
+        new Date(investor.foreclosureSubscriptionExpiry) > new Date()
+      );
+    } catch (error) {
+      console.error('Error fetching common investors with foreclosure subscription:', error);
+      // Fallback to mock implementation
+      return Array.from(this.commonInvestors.values()).filter(investor => investor.hasForeclosureSubscription);
+    }
   }
   
   async createSubscriptionRecord(investorId: string, subscriptionData: any): Promise<any> {
-    const investor = await this.getCommonInvestorById(investorId);
-    if (!investor) return null;
-    
-    return this.updateCommonInvestor(investorId, {
-      hasForeclosureSubscription: true,
-      foreclosureSubscriptionExpiry: subscriptionData.expiryDate,
-      subscriptionPlan: subscriptionData.plan
-    });
+    try {
+      return await this.db.createSubscriptionRecord(investorId, subscriptionData);
+    } catch (error) {
+      console.error('Error creating subscription record in database:', error);
+      // Continue with mock implementation
+      const investor = await this.getCommonInvestorById(investorId);
+      if (!investor) return null;
+      
+      return this.updateCommonInvestor(investorId, {
+        hasForeclosureSubscription: true,
+        foreclosureSubscriptionExpiry: subscriptionData.expiryDate,
+        subscriptionPlan: subscriptionData.planType
+      });
+    }
   }
   
   async updateSubscriptionStatus(investorId: string, status: string): Promise<boolean> {
-    const investor = await this.getCommonInvestorById(investorId);
-    if (!investor) return false;
-    
-    await this.updateCommonInvestor(investorId, {
-      hasForeclosureSubscription: status === 'active',
-      foreclosureSubscriptionExpiry: status === 'active' ? investor.foreclosureSubscriptionExpiry : null
-    });
-    
-    return true;
+    try {
+      // In a real implementation, we would update a subscription records table
+      // For now, we'll just update the investor record
+      const investor = await this.getCommonInvestorById(investorId);
+      if (!investor) return false;
+      
+      await this.updateCommonInvestor(investorId, {
+        hasForeclosureSubscription: status === 'active',
+        foreclosureSubscriptionExpiry: status === 'active' ? investor.foreclosureSubscriptionExpiry : null
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating subscription status in database:', error);
+      // Continue with mock implementation
+      const investor = await this.getCommonInvestorById(investorId);
+      if (!investor) return false;
+      
+      await this.updateCommonInvestor(investorId, {
+        hasForeclosureSubscription: status === 'active',
+        foreclosureSubscriptionExpiry: status === 'active' ? investor.foreclosureSubscriptionExpiry : null
+      });
+      
+      return true;
+    }
   }
   
   async createForeclosureSubscriptionRequest(investorId: string, requestData: any): Promise<any> {
     // Use the real database
-    if (db) {
+    if (this.rawDb) {
       try {
-        const result = await db.insert(schema.foreclosureSubscriptions).values({
+        const result = await this.rawDb.insert(schema.foreclosureSubscriptions).values({
           leadId: investorId,
           counties: requestData.counties || ['ALL'],
           subscriptionType: requestData.subscriptionType || 'weekly',
@@ -298,9 +358,9 @@ export class SaaSStorageExtension {
   // Offer methods (extend existing offers functionality)
   async createOffer(data: any): Promise<any> {
     // Use the real database
-    if (db) {
+    if (this.rawDb) {
       try {
-        const result = await db.insert(schema.offers).values(data).returning();
+        const result = await this.rawDb.insert(schema.offers).values(data).returning();
         return result[0];
       } catch (error) {
         console.error('Error creating offer:', error);
@@ -326,14 +386,14 @@ export class SaaSStorageExtension {
 
   async getOffersByInvestor(investorId: string, investorType: 'common' | 'institutional'): Promise<any[]> {
     // Use the real database
-    if (db) {
+    if (this.rawDb) {
       try {
         if (investorType === 'common') {
-          return await db.select().from(schema.offers)
+          return await this.rawDb.select().from(schema.offers)
             .where(eq(schema.offers.commonInvestorId, investorId))
             .orderBy(desc(schema.offers.createdAt));
         } else {
-          return await db.select().from(schema.offers)
+          return await this.rawDb.select().from(schema.offers)
             .where(eq(schema.offers.institutionalInvestorId, investorId))
             .orderBy(desc(schema.offers.createdAt));
         }
@@ -349,9 +409,9 @@ export class SaaSStorageExtension {
 
   async getOffersByProperty(propertyId: string): Promise<any[]> {
     // Use the real database
-    if (db) {
+    if (this.rawDb) {
       try {
-        return await db.select().from(schema.offers)
+        return await this.rawDb.select().from(schema.offers)
           .where(eq(schema.offers.propertyId, propertyId))
           .orderBy(desc(schema.offers.createdAt));
       } catch (error) {
@@ -366,9 +426,9 @@ export class SaaSStorageExtension {
 
   async updateOffer(id: string, data: Partial<any>): Promise<any | null> {
     // Use the real database
-    if (db) {
+    if (this.rawDb) {
       try {
-        const result = await db.update(schema.offers)
+        const result = await this.rawDb.update(schema.offers)
           .set({ ...data, updatedAt: new Date() })
           .where(eq(schema.offers.id, id))
           .returning();
@@ -385,9 +445,9 @@ export class SaaSStorageExtension {
 
   async deleteOffer(id: string): Promise<boolean> {
     // Use the real database
-    if (db) {
+    if (this.rawDb) {
       try {
-        await db.delete(schema.offers)
+        await this.rawDb.delete(schema.offers)
           .where(eq(schema.offers.id, id));
         return true;
       } catch (error) {
@@ -401,10 +461,6 @@ export class SaaSStorageExtension {
   }
 
   // Utility methods
-  getAllCommonInvestors(): CommonInvestor[] {
-    return Array.from(this.commonInvestors.values());
-  }
-
   getAllCommonInvestorSessions(): CommonInvestorSession[] {
     return Array.from(this.commonInvestorSessions.values());
   }

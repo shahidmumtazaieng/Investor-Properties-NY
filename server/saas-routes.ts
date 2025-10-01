@@ -27,6 +27,11 @@ interface SaaSStorage {
   getCommonInvestorById(id: string): Promise<CommonInvestor | null>;
   authenticateCommonInvestor(username: string, password: string): Promise<CommonInvestor | null>;
   updateCommonInvestor(id: string, data: Partial<CommonInvestor>): Promise<CommonInvestor | null>;
+  getAllCommonInvestors(): Promise<CommonInvestor[]>;
+  
+  // Institutional Investors
+  getAllInstitutionalInvestors(): Promise<InstitutionalInvestor[]>;
+  getInstitutionalInvestorById(id: string): Promise<InstitutionalInvestor | null>;
   
   // Sessions
   createCommonInvestorSession(investorId: string, sessionToken: string, expiresAt: Date): Promise<void>;
@@ -39,6 +44,12 @@ interface SaaSStorage {
   getOffersByProperty(propertyId: string): Promise<any[]>;
   updateOffer(id: string, data: Partial<any>): Promise<any | null>;
   deleteOffer(id: string): Promise<boolean>;
+  
+  // Subscription Methods
+  getAllCommonInvestors(): Promise<CommonInvestor[]>;
+  getCommonInvestorsWithForeclosureSubscription(): Promise<CommonInvestor[]>;
+  createSubscriptionRecord(investorId: string, subscriptionData: any): Promise<any>;
+  updateSubscriptionStatus(investorId: string, status: string): Promise<boolean>;
   
   // Properties (existing)
   getProperties(): Promise<any[]>;

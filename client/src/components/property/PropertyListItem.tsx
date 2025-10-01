@@ -39,7 +39,7 @@ const PropertyListItem: React.FC<PropertyListItemProps> = ({
 
   return (
     <Card 
-      variant="property" 
+      variant="elevated" 
       className="group animate-slide-up relative overflow-hidden flex flex-col md:flex-row"
     >
       {/* Image Container */}

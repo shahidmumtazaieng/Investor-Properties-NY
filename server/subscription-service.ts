@@ -87,7 +87,7 @@ export class SubscriptionService {
         return { hasSubscription: false };
       }
       
-      const expiryDate = new Date(investor.foreclosureSubscriptionExpiry);
+      const expiryDate = investor.foreclosureSubscriptionExpiry ? new Date(investor.foreclosureSubscriptionExpiry) : new Date();
       const now = new Date();
       
       // Check if subscription is expired
@@ -107,7 +107,7 @@ export class SubscriptionService {
         hasSubscription: true,
         expiryDate,
         daysRemaining,
-        planType: investor.subscriptionPlan
+        planType: investor.subscriptionPlan || undefined
       };
     } catch (error) {
       console.error("Failed to check foreclosure subscription:", error);
